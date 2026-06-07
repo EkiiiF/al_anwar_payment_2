@@ -1,0 +1,42 @@
+# Binaries
+/server
+/backend_go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binary
+*.test
+
+# Go coverage / profiles
+*.out
+*.prof
+
+# Environment (contains secrets!)
+.env
+.env.*
+!.env.example
+!.env.test
+
+# IDE / Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Vendor (if not committing)
+# vendor/
+
+# Tmp / Air live reload
+tmp/
+bin/

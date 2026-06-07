@@ -1,0 +1,119 @@
+@import 'tailwindcss';
+
+@theme {
+  /* ── Brand: Emerald ── */
+  --color-emerald-800: #065F46;
+  --color-emerald-700: #047857;
+  --color-emerald-600: #059669;
+  --color-emerald-100: #D1FAE5;
+  --color-emerald-50:  #ECFDF5;
+
+  /* ── CTA / Secondary: Teal ── */
+  --color-teal-700: #0F766E;
+  --color-teal-600: #0D9488;
+  --color-teal-500: #14B8A6;
+  --color-teal-100: #CCFBF1;
+  --color-teal-50:  #F0FDFA;
+
+  /* ── Neutral: Slate ── */
+  --color-slate-900: #0F172A;
+  --color-slate-800: #1E293B;
+  --color-slate-700: #334155;
+  --color-slate-600: #475569;
+  --color-slate-500: #64748B;
+  --color-slate-400: #94A3B8;
+  --color-slate-300: #CBD5E1;
+  --color-slate-200: #E2E8F0;
+  --color-slate-100: #F1F5F9;
+  --color-slate-50:  #F8FAFC;
+
+  /* ── Danger ── */
+  --color-red-600: #DC2626;
+  --color-red-500: #EF4444;
+  --color-red-100: #FEE2E2;
+  --color-red-50:  #FEF2F2;
+
+  /* ── Warning ── */
+  --color-amber-600: #D97706;
+  --color-amber-500: #F59E0B;
+  --color-amber-100: #FEF3C7;
+  --color-amber-50:  #FFFBEB;
+
+  /* ── Info / Blue ── */
+  --color-blue-600: #2563EB;
+  --color-blue-100: #DBEAFE;
+
+  /* ── Surface Tokens ── */
+  --color-surface-base:    #FFFFFF;
+  --color-surface-subtle:  #F8FAFC;
+  --color-surface-muted:   #F1F5F9;
+  --color-surface-sidebar: #FFFFFF;
+
+  /* ── Border Tokens ── */
+  --color-border-default: #E2E8F0;
+  --color-border-subtle:  #F1F5F9;
+
+  /* ── Text Tokens ── */
+  --color-text-primary:   #0F172A;
+  --color-text-secondary: #334155;
+  --color-text-muted:     #64748B;
+  --color-text-hint:      #94A3B8;
+
+  /* ── Font ── */
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
+/* ============================================================
+   GLOBAL RESETS
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #FFFFFF;
+  color: #0F172A;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+/* ── Scrollbar: Minimal & Clean ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #F8FAFC; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* ── Focus Ring: Emerald brand ── */
+:focus-visible {
+  outline: 2px solid #065F46;
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   ANIMATIONS (Subtle & Purposeful)
+   ============================================================ */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in-up  { animation: fade-in-up  0.35s ease-out forwards; }
+.animate-fade-in     { animation: fade-in     0.25s ease-out forwards; }
+.animate-slide-left  { animation: slide-in-left 0.25s ease-out forwards; }
+
+.stagger-1 { animation-delay: 0.05s; opacity: 0; }
+.stagger-2 { animation-delay: 0.10s; opacity: 0; }
+.stagger-3 { animation-delay: 0.15s; opacity: 0; }
+.stagger-4 { animation-delay: 0.20s; opacity: 0; }

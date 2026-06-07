@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # DATABASE
+  db:
+    image: mysql:8.0
+    container_name: al_anwar_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+  # PHPMYADMIN (Database GUI)
+  # access: http://localhost:8081 username=root password=${DB_PASSWORD}
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: al_anwar_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+
+  # BACKEND (Go Fiber)
+  backend:
+    build: ./backend_go
+    container_name: al_anwar_backend
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend_go/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_PASS=${DB_PASSWORD}
+      - DB_NAME=${DB_DATABASE}
+    ports:
+      - "8000:8080"
+
+  # FRONTEND (SvelteKit)
+  frontend:
+    build: ./frontend_svelte
+    container_name: al_anwar_frontend
+    restart: on-failure
+    depends_on:
+      - backend
+    env_file:
+      - ./frontend_svelte/.env
+    ports:
+      - "3000:3000"
+
+  # NGROK (Exposure for Webhooks)
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: al_anwar_ngrok
+    restart: always
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command:
+      - "http"
+      - "backend:8080"
+    ports:
+      - "4040:4040"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+
+# =========================================================
+
+# 1. PERBEDAAN AKSES
+# - Dari browser (HOST):
+#   frontend  -> http://localhost:3000
+#   backend   -> http://localhost:8000
+
+# 2. PERINTAH DASAR DOCKER
+# - build + run pertama:
+#   docker compose up --build
+#
+# - jalankan di background:
+#   docker compose up -d
+#
+# - lihat log:
+#   docker compose up
+#
+# - stop semua:
+#   docker compose down
+#
+# - restart:
+#   docker compose restart
+
+# 3. DEBUGGING CEPAT
+# - cek container:
+#   docker ps
+#
+# - cek log backend:
+#   docker logs al_anwar_backend
+#
+# - cek log frontend:
+#   docker logs al_anwar_frontend
