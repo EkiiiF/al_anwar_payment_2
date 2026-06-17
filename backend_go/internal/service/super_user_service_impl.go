@@ -42,7 +42,6 @@ func NewSuperUserService(
 	}
 }
 
-// guardianRelation mengembalikan relasi wali, default "Orang Tua" jika kosong.
 func guardianRelation(rel string) string {
 	if rel == "" {
 		return "Orang Tua"
@@ -66,13 +65,16 @@ func (s *SuperUserServiceImpl) GetDashboardStats() (response.SuperUserDashboardS
 		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung tagihan lunas: %w", err)
 	}
 
-	now := time.Now()
-	totalIncome, err := s.Repository.SumIncomeThisMonth(s.DB, int(now.Month()), now.Year())
+	// ─── Hijri & Semester Info ──────────────────────────────
+	hijriNow := utils.GetCurrentHijriDate()
+	semesterInfo := utils.GetSemesterInfo(hijriNow.Month, hijriNow.Year)
+
+	totalIncome, err := s.Repository.SumIncomeThisMonth(s.DB, hijriNow.Month, hijriNow.Year)
 	if err != nil {
 		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung pendapatan: %w", err)
 	}
 
-	monthlyIncomeData, err := s.Repository.GetMonthlyIncomeForYear(s.DB, now.Year())
+	monthlyIncomeData, err := s.Repository.GetMonthlyIncomeForYear(s.DB, hijriNow.Year)
 	if err != nil {
 		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung pendapatan bulanan: %w", err)
 	}
@@ -86,14 +88,10 @@ func (s *SuperUserServiceImpl) GetDashboardStats() (response.SuperUserDashboardS
 	for i := 1; i <= 12; i++ {
 		monthlyStats = append(monthlyStats, response.MonthlyPaymentStat{
 			Month: i,
-			Year:  now.Year(),
+			Year:  hijriNow.Year,
 			Total: monthMap[i],
 		})
 	}
-
-	// ─── Hijri & Semester Info ──────────────────────────────
-	hijriNow := utils.GetCurrentHijriDate()
-	semesterInfo := utils.GetSemesterInfo(hijriNow.Month, hijriNow.Year)
 
 	currentHijri := response.HijriMonthInfo{
 		HijriMonth:        hijriNow.Month,
@@ -802,6 +800,18 @@ func (s *SuperUserServiceImpl) GenerateInvoices(ctx context.Context, req request
 func (s *SuperUserServiceImpl) GenerateSemesterInvoices(ctx context.Context, semester int, hijriYear int, operatorID, ip, ua string) (int, error) {
 	if semester < 1 || semester > 2 {
 		return 0, fmt.Errorf("semester harus 1 atau 2")
+	}
+
+	currentHijri := utils.GetCurrentHijriDate()
+	currentSemesterInfo := utils.GetSemesterInfo(currentHijri.Month, currentHijri.Year)
+	currentSemester := currentSemesterInfo.Number
+
+	if semester != currentSemester {
+		return 0, fmt.Errorf("tidak bisa membuat tagihan semester %d karena saat ini berada di %s", semester, currentSemesterInfo.Name)
+	}
+
+	if hijriYear != currentHijri.Year {
+		return 0, fmt.Errorf("tahun Hijriah harus sesuai dengan tahun saat ini (%d H)", currentHijri.Year)
 	}
 
 	// Ambil bulan-bulan di semester ini

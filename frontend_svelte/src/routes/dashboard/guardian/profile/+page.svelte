@@ -2,4 +2,4 @@
   import Profile from '$lib/components/shared/Profile.svelte';
 </script>
 
-<Profile roleLabel="Guardian" roleColor="blue" />
+<Profile roleLabel="Wali Santri (Guardian)" roleColor="blue" />

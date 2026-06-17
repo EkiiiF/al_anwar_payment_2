@@ -35,7 +35,7 @@
 
 <SidebarLayout
   role="super_user"
-  roleLabel="Super User"
+  roleLabel="Super User (Bendahara)"
   roleColor="emerald"
   {menuItems}
   {userName}

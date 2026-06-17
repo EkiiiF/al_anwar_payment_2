@@ -5,7 +5,7 @@
     dot = false
   }: {
     label: string;
-    variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'teal';
+    variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'teal' | 'purple';
     dot?: boolean;
   } = $props();
 
@@ -15,7 +15,8 @@
     warning: 'bg-amber-50 text-amber-600',
     danger:  'bg-red-50 text-red-600',
     info:    'bg-blue-100 text-blue-600',
-    teal:    'bg-teal-50 text-teal-700'
+    teal:    'bg-teal-50 text-teal-700',
+    purple:  'bg-purple-50 text-purple-700'
   };
 
   const dotColors: Record<string, string> = {
@@ -24,7 +25,8 @@
     warning: 'bg-amber-500',
     danger:  'bg-red-500',
     info:    'bg-blue-500',
-    teal:    'bg-teal-500'
+    teal:    'bg-teal-500',
+    purple:  'bg-purple-500'
   };
 </script>
 

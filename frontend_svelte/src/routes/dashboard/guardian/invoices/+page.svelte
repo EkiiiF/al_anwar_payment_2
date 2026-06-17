@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { guardianApi } from '$lib/api';
-  import { formatRupiah, getMonthName, getInvoiceStatusStyle, getHijriMonthName } from '$lib/utils';
+  import { formatRupiah, getInvoiceStatusStyle, getHijriMonthName } from '$lib/utils';
   import { Spinner, Alert, Button, Card, Badge, EmptyState, CheckoutSummary, PondokBillingColumn, SemesterBillingColumn, InvoiceHistoryList } from '$lib/components';
   import type { Invoice } from '$lib/types';
   import { ShoppingCart, CreditCard, CheckSquare, Layers, Calendar } from 'lucide-svelte';
@@ -155,6 +155,28 @@
       loading = false;
     }
   }
+
+  function resumePayment(snapToken: string) {
+    type SnapWindow = Window & typeof globalThis & {
+      snap?: { pay: (token: string, options: Record<string, unknown>) => void }
+    };
+    const w = window as SnapWindow;
+    if (!w.snap) {
+      payError = 'Midtrans Snap tidak tersedia. Silakan muat ulang halaman.';
+      return;
+    }
+    paying = true;
+    w.snap.pay(snapToken, {
+      onSuccess: () => { window.location.href = '/dashboard/guardian/history'; },
+      onPending: () => { window.location.href = '/dashboard/guardian/history'; },
+      onError: (result: unknown) => {
+        console.error('[Midtrans Error]', result);
+        payError = 'Pembayaran gagal. Silakan coba lagi.';
+        paying = false;
+      },
+      onClose: () => { paying = false; }
+    });
+  }
 </script>
 
 <svelte:head>
@@ -165,7 +187,7 @@
 <div class="space-y-6">
   <div>
     <h1 class="text-2xl font-black text-gray-900 tracking-tight">Tagihan Saya</h1>
-    <p class="text-gray-550 text-sm mt-1">Pilih satu atau beberapa tagihan untuk dibayar sekaligus.</p>
+    <p class="text-gray-555 text-sm mt-1">Pilih satu atau beberapa tagihan untuk dibayar sekaligus.</p>
   </div>
 
   {#if error}
@@ -209,6 +231,7 @@
       <InvoiceHistoryList
         otherInvoices={otherInvoices}
         refreshStatus={refreshStatus}
+        resumePayment={resumePayment}
       />
     {/if}
   {/if}

@@ -46,29 +46,7 @@
   {:else if error}
     <Alert type="error" message={error} />
   {:else if stats}
-    {#each stats.students as student}
-    <Card class="mb-4">
-      <div class="flex items-center gap-4">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white font-black text-lg flex-shrink-0 shadow-md shadow-green-200">
-          {getInitials(student.student_name)}
-        </div>
-        <div class="min-w-0">
-          <p class="text-xs text-gray-400 font-medium uppercase tracking-wider">Santri</p>
-          <h2 class="text-lg font-black text-gray-900 truncate">{student.student_name}</h2>
-          <div class="flex gap-2 mt-1 flex-wrap">
-            <span class="text-xs font-mono text-green-700 font-semibold">NIS: {student.nis}</span>
-            {#if student.category_name}
-              <Badge label={student.category_name} variant="info" />
-            {/if}
-            {#if student.status_name}
-              <Badge label={student.status_name} variant="purple" />
-            {/if}
-            <Badge label={student.is_active ? 'Aktif' : 'Nonaktif'} variant={student.is_active ? 'success' : 'danger'} dot />
-          </div>
-        </div>
-      </div>
-    </Card>
-    {/each}
+    {@const student = stats.student}
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <StatCard

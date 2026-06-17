@@ -2,13 +2,13 @@
   import { onMount } from 'svelte';
   import { BarChart3, Download, ChevronLeft, ChevronRight } from 'lucide-svelte';
   import { superUserApi } from '$lib/api';
-  import { formatRupiah, getMonthName, MONTH_NAMES } from '$lib/utils';
+  import { formatRupiah, getHijriMonthName, HIJRI_MONTH_NAMES } from '$lib/utils';
   import { Button, Alert, Spinner, Card, Badge, Select } from '$lib/components';
   import { toast } from '$lib/stores/toast';
 
   let filterPeriod   = $state('monthly');
-  let filterMonth    = $state(String(new Date().getMonth() + 1));
-  let filterYear     = $state(String(new Date().getFullYear()));
+  let filterMonth    = $state('10');
+  let filterYear     = $state('1447');
   let filterCategory = $state('');
 
   let reportData = $state<unknown>(null);
@@ -46,7 +46,7 @@
   ];
 
 
-  const monthOptions = MONTH_NAMES.map((n, i) => ({ value: String(i + 1), label: n }));
+  const monthOptions = HIJRI_MONTH_NAMES.map((n, i) => ({ value: String(i + 1), label: n }));
 
   async function fetchReport() {
     loading = true;
@@ -61,7 +61,7 @@
       };
       const [resReport, resInv] = await Promise.all([
         superUserApi.getReports(filters),
-        superUserApi.getInvoicesPaginated({}, invPage, invLimit)
+        superUserApi.getInvoicesPaginated({ status: 'paid' }, invPage, invLimit)
       ]);
       reportData = resReport.data;
       invoices = resInv.data?.invoices ?? [];
@@ -75,7 +75,7 @@
   
   async function fetchInvoices() {
     try {
-      const res = await superUserApi.getInvoicesPaginated({}, invPage, invLimit);
+      const res = await superUserApi.getInvoicesPaginated({ status: 'paid' }, invPage, invLimit);
       invoices = res.data?.invoices ?? [];
       invPagination = res.data?.pagination ?? null;
     } catch (e: unknown) {
@@ -196,7 +196,7 @@
                 <tr class="hover:bg-gray-50 transition-colors">
                   <td class="px-5 py-3 font-mono text-xs text-green-600">{String(i.invoice_number)}</td>
                   <td class="px-5 py-3 text-gray-900">{String((i.student as Record<string, unknown>)?.full_name ?? '-')}</td>
-                  <td class="px-5 py-3 text-gray-500">{getMonthName(Number(i.month))} {i.year}</td>
+                  <td class="px-5 py-3 text-gray-500">{getHijriMonthName(Number(i.hijri_month))} {i.hijri_year} H</td>
                   <td class="px-5 py-3 text-right font-bold text-gray-900">{formatRupiah(Number(i.amount_due))}</td>
                   <td class="px-5 py-3 text-center">
                     <Badge

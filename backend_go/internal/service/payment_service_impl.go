@@ -48,6 +48,30 @@ func NewPaymentService(db *gorm.DB, paymentRepo repository.PaymentRepository, gu
 func (s *PaymentServiceImpl) CheckStatus(ctx context.Context, orderID string) error {
 	resp, err := s.CoreClient.CheckTransaction(orderID)
 	if err != nil {
+		log.Printf("[Midtrans] CheckTransaction error for OrderID %s: %v", orderID, err)
+		
+		// Cek jika pembayaran ada di database dan berstatus pending
+		var payments []domain.Payment
+		if findErr := s.DB.Where("external_id = ?", orderID).Find(&payments).Error; findErr == nil && len(payments) > 0 {
+			status := ""
+			if payments[0].TransactionStatus != nil {
+				status = *payments[0].TransactionStatus
+			}
+			if status == "pending" || status == "pending_payment" {
+				timeDiff := time.Since(payments[0].CreatedAt)
+				if timeDiff > 10*time.Minute {
+					log.Printf("[Midtrans] Transaksi %s berumur %v dan tidak ditemukan di Midtrans. Mengubah status ke expire.", orderID, timeDiff)
+					notification := map[string]interface{}{
+						"order_id":           orderID,
+						"transaction_status": "expire",
+						"payment_type":       "-",
+						"fraud_status":       "accept",
+						"gross_amount":       "0",
+					}
+					return s.HandleNotification(ctx, notification)
+				}
+			}
+		}
 		return fmt.Errorf("gagal mengecek status ke Midtrans: %w", err)
 	}
 
@@ -79,6 +103,9 @@ func (s *PaymentServiceImpl) CreateTransaction(ctx context.Context, invoiceIDs [
 
 		if invoice.Status == "paid" {
 			return response.TransactionResponse{}, fmt.Errorf("tagihan %s sudah lunas", invoice.InvoiceNumber)
+		}
+		if invoice.Status == "pending" {
+			return response.TransactionResponse{}, fmt.Errorf("tagihan %s sedang dalam proses pembayaran (pending)", invoice.InvoiceNumber)
 		}
 
 		totalAmount += invoice.AmountDue
@@ -135,6 +162,9 @@ func (s *PaymentServiceImpl) CreateTransaction(ctx context.Context, invoiceIDs [
 		}
 		if err := s.PaymentRepo.CreatePayment(s.DB, &payment); err != nil {
 			return response.TransactionResponse{}, fmt.Errorf("gagal menyimpan payment: %w", err)
+		}
+		if err := s.PaymentRepo.UpdateInvoiceStatus(s.DB, inv.ID, "pending"); err != nil {
+			return response.TransactionResponse{}, fmt.Errorf("gagal memperbarui status invoice ke pending: %w", err)
 		}
 	}
 
@@ -221,9 +251,7 @@ func (s *PaymentServiceImpl) sendPaymentNotificationWithTx(ctx context.Context, 
 		return
 	}
 
-	// Ambil data invoice dan student dari payment pertama (asumsi semua payment dalam satu order_id milik student yang sama)
 	payment := payments[0]
-	// Pastikan student dan guardians ter-preload (FindPaymentByExternalID di repo sudah melakukannya)
 
 	studentName := payment.Invoice.Student.FullName()
 
@@ -260,7 +288,7 @@ func (s *PaymentServiceImpl) sendPaymentNotificationWithTx(ctx context.Context, 
 	}
 
 	if shouldNotify {
-		// 1. Kirim Notifikasi ke Guardian (Wali Santri)
+		// 1. Kirim Notifikasi
 		notifGuardian := &domain.Notification{
 			ID:        utils.GenerateID(),
 			UserID:    userID,

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PlayCircle, Receipt, Filter, Search, Calendar, CheckCircle2, Clock, BookOpen, GraduationCap, Moon, Layers, ChevronLeft, ChevronRight, User, X, FileText, MapPin, Phone, Mail, Eye, EyeOff, ChevronDown, ChevronUp, Zap, Settings2, PanelTopClose, PanelTop } from 'lucide-svelte';
+  import { PlayCircle, Receipt, Filter, Search, Calendar, CheckCircle2, AlertCircle, Clock, BookOpen, GraduationCap, Moon, Layers, ChevronLeft, ChevronRight, User, X, FileText, MapPin, Phone, Mail, Eye, EyeOff, ChevronDown, ChevronUp, Zap, Settings2, PanelTopClose, PanelTop } from 'lucide-svelte';
   import { superUserApi } from '$lib/api';
-  import { formatRupiah, formatDate, getMonthName, MONTH_NAMES, getHijriMonthName } from '$lib/utils';
+  import { formatRupiah, formatDate, getHijriMonthName, HIJRI_MONTH_NAMES } from '$lib/utils';
   import { Button, Alert, Spinner, Badge, EmptyState, Card, Select, Modal, BillingGenerator, AutoBillingSettings, BillingFilters, StudentBillingCard, StudentBillingModal } from '$lib/components';
+  import { toast } from '$lib/stores/toast';
   import type { Invoice, HijriMonthInfo, Student } from '$lib/types';
 
   let students   = $state<Student[]>([]);
@@ -43,10 +44,18 @@
   let settingLoading             = $state(false);
   let showBillingPanel           = $state(true);
 
-  const monthOptions = MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }));
+  // Custom Modal Confirmation & Notification States
+  let showConfirmModal           = $state(false);
+  let confirmMode                = $state<'monthly' | 'semester'>('monthly');
+  let showFeedbackModal          = $state(false);
+  let feedbackType               = $state<'success' | 'error'>('success');
+  let feedbackTitle              = $state('');
+  let feedbackMessage            = $state('');
+
+  const monthOptions = HIJRI_MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }));
   const yearOptions  = Array.from({ length: 5 }, (_, i) => {
-    const y = new Date().getFullYear() - 2 + i;
-    return { value: String(y), label: String(y) };
+    const y = 1445 + i;
+    return { value: String(y), label: `${y} H` };
   });
 
   async function fetchData() {
@@ -102,10 +111,19 @@
   }
 
   onMount(() => {
+    const stored = localStorage.getItem('showBillingPanel');
+    if (stored !== null) {
+      showBillingPanel = stored === 'true';
+    }
     fetchData();
     fetchSettings();
     fetchHijriInfo();
   });
+
+  function toggleBillingPanel() {
+    showBillingPanel = !showBillingPanel;
+    localStorage.setItem('showBillingPanel', String(showBillingPanel));
+  }
 
   $effect(() => {
     statusFilter;
@@ -143,53 +161,82 @@
     }
   }
 
-  async function handleGenerate() {
-    if (genMode === 'monthly') {
-      await handleGenerateMonthly();
+  function triggerGenerateConfirmation(mode: 'monthly' | 'semester') {
+    if (mode === 'monthly') {
+      const yr = Number(genYear);
+      if (!genYear || isNaN(yr) || yr < 1300 || yr > 1600) {
+        feedbackType = 'error';
+        feedbackTitle = 'Input Tidak Valid';
+        feedbackMessage = 'Tahun Hijriah wajib diisi dengan angka antara 1300 - 1600 H (Contoh: 1447).';
+        showFeedbackModal = true;
+        return;
+      }
     } else {
-      await handleGenerateSemester();
+      const yr = Number(genHijriYear);
+      if (!genHijriYear || isNaN(yr) || yr < 1300 || yr > 1600) {
+        feedbackType = 'error';
+        feedbackTitle = 'Input Tidak Valid';
+        feedbackMessage = 'Tahun Hijriah wajib diisi dengan angka antara 1300 - 1600 H (Contoh: 1447).';
+        showFeedbackModal = true;
+        return;
+      }
     }
+    confirmMode = mode;
+    showConfirmModal = true;
   }
 
-  async function handleGenerateMonthly() {
-    if (!confirm(`Generate tagihan Syahriyyah Pondok & Muhadhoroh untuk bulan ${getHijriMonthName(Number(genMonth))} ${genYear} H?`)) return;
-
-    generating = true;
-    genMessage  = '';
-    try {
-      await superUserApi.generateInvoices(Number(genMonth), Number(genYear));
-      genMessage = 'Tagihan Syahriyyah Pondok & Muhadhoroh berhasil dibuat!';
-      genSuccess = true;
-      await fetchData();
-    } catch (e: unknown) {
-      genMessage = e instanceof Error ? e.message : 'Gagal generate tagihan.';
-      genSuccess = false;
-    } finally {
-      generating = false;
-    }
+  function handleGenerate() {
+    triggerGenerateConfirmation(genMode);
   }
 
-  async function handleGenerateSemester() {
-    const yr = Number(genHijriYear) || (hijriInfo?.hijri_year ?? 0);
-    if (!yr) {
-      genMessage = 'Tahun Hijriah belum terdeteksi.';
-      genSuccess = false;
-      return;
-    }
-    if (!confirm(`Generate seluruh tagihan Semester ${genSemester} untuk tahun ${yr} H?\nSemua tagihan bulan di semester ini akan dibuat sekaligus. Wali santri dapat membayar paket atau dicicil per bulan.`)) return;
-
+  async function executeGenerate() {
+    showConfirmModal = false;
     generating = true;
     genMessage  = '';
-    try {
-      await superUserApi.generateSemesterInvoices(Number(genSemester), yr);
-      genMessage = `Tagihan Semester ${genSemester} berhasil dibuat!`;
-      genSuccess = true;
-      await fetchData();
-    } catch (e: unknown) {
-      genMessage = e instanceof Error ? e.message : 'Gagal generate tagihan semester.';
-      genSuccess = false;
-    } finally {
-      generating = false;
+    genSuccess = false;
+    
+    if (confirmMode === 'monthly') {
+      const yr = Number(genYear);
+      try {
+        await superUserApi.generateInvoices(Number(genMonth), yr);
+        feedbackType = 'success';
+        feedbackTitle = 'Pembuatan Tagihan Berhasil';
+        feedbackMessage = `Tagihan Syahriyyah Pondok & Muhadhoroh berhasil dibuat untuk bulan ${getHijriMonthName(Number(genMonth))} ${genYear} H!`;
+        genMessage = feedbackMessage;
+        genSuccess = true;
+        showFeedbackModal = true;
+        await fetchData();
+      } catch (e: unknown) {
+        feedbackType = 'error';
+        feedbackTitle = 'Pembuatan Tagihan Gagal';
+        feedbackMessage = e instanceof Error ? e.message : 'Gagal membuat tagihan.';
+        genMessage = feedbackMessage;
+        genSuccess = false;
+        showFeedbackModal = true;
+      } finally {
+        generating = false;
+      }
+    } else {
+      const yr = Number(genHijriYear);
+      try {
+        await superUserApi.generateSemesterInvoices(Number(genSemester), yr);
+        feedbackType = 'success';
+        feedbackTitle = 'Pembuatan Tagihan Berhasil';
+        feedbackMessage = `Tagihan Semester ${genSemester} berhasil dibuat untuk tahun ${yr} H! Semua tagihan bulan di semester ini telah diterbitkan.`;
+        genMessage = feedbackMessage;
+        genSuccess = true;
+        showFeedbackModal = true;
+        await fetchData();
+      } catch (e: unknown) {
+        feedbackType = 'error';
+        feedbackTitle = 'Pembuatan Tagihan Gagal';
+        feedbackMessage = e instanceof Error ? e.message : 'Gagal membuat tagihan semester.';
+        genMessage = feedbackMessage;
+        genSuccess = false;
+        showFeedbackModal = true;
+      } finally {
+        generating = false;
+      }
     }
   }
 
@@ -200,13 +247,16 @@
         const nextValue = !autoBillingEnabled;
         await superUserApi.updateSetting(key, String(nextValue));
         autoBillingEnabled = nextValue;
+        toast.success(`Auto-billing bulanan berhasil ${nextValue ? 'diaktifkan' : 'dinonaktifkan'}.`);
       } else {
         const nextValue = !autoSemesterBillingEnabled;
         await superUserApi.updateSetting(key, String(nextValue));
         autoSemesterBillingEnabled = nextValue;
+        toast.success(`Auto-billing semester berhasil ${nextValue ? 'diaktifkan' : 'dinonaktifkan'}.`);
       }
     } catch (e: unknown) {
-      console.error(e instanceof Error ? e.message : 'Gagal mengubah setting.');
+      const msg = e instanceof Error ? e.message : 'Gagal mengubah pengaturan.';
+      toast.error(msg);
     } finally {
       settingLoading = false;
     }
@@ -216,8 +266,14 @@
     settingLoading = true;
     try {
       await superUserApi.updateSetting(key, value);
+      let label = key;
+      if (key === 'billing_hijri_day') label = 'Hari jatuh tempo Hijriah';
+      else if (key === 'billing_hijri_month') label = 'Bulan jatuh tempo Hijriah';
+      else if (key === 'billing_hijri_year') label = 'Tahun jatuh tempo Hijriah';
+      toast.success(`Pengaturan ${label} berhasil diperbarui.`);
     } catch (e: unknown) {
-      console.error(e instanceof Error ? e.message : `Gagal mengubah setting ${key}.`);
+      const msg = e instanceof Error ? e.message : 'Gagal mengubah pengaturan.';
+      toast.error(msg);
     } finally {
       settingLoading = false;
     }
@@ -232,31 +288,26 @@
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
       <h1 class="text-2xl font-black text-gray-900 tracking-tight">Manajemen Tagihan Semester</h1>
-      <p class="text-gray-500 text-sm mt-1">Generate tagihan berdasarkan kalender Hijriah dan pantau status pembayaran per semester.</p>
+      <p class="text-gray-500 text-sm mt-1">Buat tagihan berdasarkan kalender Hijriah dan pantau status pembayaran per semester.</p>
     </div>
     <div class="flex items-center gap-3">
-      <button
-        onclick={() => showBillingPanel = !showBillingPanel}
-        class="billing-toggle-btn {showBillingPanel ? 'billing-toggle-btn--active' : ''}"
+      <Button
+        variant="outline"
+        onclick={toggleBillingPanel}
+        class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 border border-slate-200 shadow-sm"
       >
-        <span class="billing-toggle-btn__icon">
+        {#snippet children()}
           {#if showBillingPanel}
-            <PanelTopClose size={16} />
+            <PanelTopClose size={15} class="text-slate-650" />
+            <span>Sembunyikan Panel</span>
+            <ChevronUp size={14} class="text-slate-400" />
           {:else}
-            <PanelTop size={16} />
+            <PanelTop size={15} class="text-slate-650" />
+            <span>Tampilkan Panel</span>
+            <ChevronDown size={14} class="text-slate-400" />
           {/if}
-        </span>
-        <span class="billing-toggle-btn__label">
-          {showBillingPanel ? 'Sembunyikan Panel' : 'Tampilkan Panel'}
-        </span>
-        <span class="billing-toggle-btn__indicator">
-          {#if showBillingPanel}
-            <ChevronUp size={14} />
-          {:else}
-            <ChevronDown size={14} />
-          {/if}
-        </span>
-      </button>
+        {/snippet}
+      </Button>
     </div>
   </div>
 
@@ -296,7 +347,7 @@
           <p class="text-2xl font-black text-emerald-900 mt-1">
             {students.reduce((sum, s) => sum + (s.invoices?.length || 0), 0)}
           </p>
-          <p class="text-xs text-emerald-600 mt-0.5 truncate">Tagihan di-generate</p>
+          <p class="text-xs text-emerald-600 mt-0.5 truncate">Tagihan dibuat</p>
         </div>
       </div>
     </Card>
@@ -377,7 +428,7 @@
           onclick={() => openStudentModal(student)}
         />
       {:else}
-        <EmptyState title="Tidak ada santri dengan tagihan" description="Coba ubah filter atau generate tagihan baru." />
+        <EmptyState title="Tidak ada santri dengan tagihan" description="Coba ubah filter atau buat tagihan baru." />
       {/each}
       
       {#if pagination && pagination.pages > 1}
@@ -406,120 +457,88 @@
     onclose={closeStudentModal}
     selectedStudent={selectedStudent}
   />
+
+  <!-- Modal Konfirmasi Pembuatan Tagihan -->
+  <Modal bind:open={showConfirmModal} title="Konfirmasi Pembuatan Tagihan" size="md">
+    {#snippet children()}
+      <div class="space-y-4 py-2">
+        <p class="text-sm text-slate-600">
+          Apakah Anda yakin ingin menerbitkan tagihan manual untuk periode berikut? Tindakan ini akan membuat tagihan massal bagi seluruh santri reguler yang aktif.
+        </p>
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">Jenis Tagihan:</span>
+            <span class="font-bold text-slate-800">
+              {confirmMode === 'monthly' ? 'Syahriyyah Bulanan' : 'Tagihan Semester'}
+            </span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">Periode Akademik:</span>
+            <span class="font-bold text-slate-800">
+              {confirmMode === 'monthly' 
+                ? `${getHijriMonthName(Number(genMonth))} ${genYear} H` 
+                : `Semester ${genSemester} (${genSemester === '1' ? 'Ganjil' : 'Genap'}) - Tahun ${genHijriYear} H`}
+            </span>
+          </div>
+          {#if confirmMode === 'semester'}
+            <p class="text-xs text-amber-600 font-semibold bg-amber-50 p-2.5 rounded-lg border border-amber-100 mt-2">
+              ⚠️ Peringatan: Seluruh tagihan bulanan pada semester ini akan dibuat sekaligus. Pastikan periode semester ini sesuai dengan kalender Hijriah yang sedang berjalan.
+            </p>
+          {/if}
+        </div>
+      </div>
+    {/snippet}
+    {#snippet footer()}
+      <div class="flex justify-end gap-3 w-full">
+        <Button variant="outline" onclick={() => showConfirmModal = false} size="md">
+          {#snippet children()}Batal{/snippet}
+        </Button>
+        <Button variant="primary" onclick={executeGenerate} loading={generating} size="md" class="!bg-emerald-800 hover:!bg-emerald-750 text-white font-bold">
+          {#snippet children()}Ya, Buat Tagihan{/snippet}
+        </Button>
+      </div>
+    {/snippet}
+  </Modal>
+
+  <!-- Modal Feedback Hasil Aksi -->
+  <Modal bind:open={showFeedbackModal} title={feedbackTitle} size="md">
+    {#snippet children()}
+      <div class="flex flex-col items-center text-center space-y-4 py-4">
+        {#if feedbackType === 'success'}
+          <div class="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center border border-emerald-100 animate-pulse animate-duration-1000">
+            <CheckCircle2 size={36} class="text-emerald-600" />
+          </div>
+        {:else}
+          <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center border border-red-100 animate-pulse animate-duration-1000">
+            <AlertCircle size={36} class="text-red-600" />
+          </div>
+        {/if}
+        <div class="space-y-2 max-w-sm">
+          <h3 class="font-bold text-slate-900 text-lg">{feedbackTitle}</h3>
+          <p class="text-sm text-slate-650 leading-relaxed whitespace-pre-line">
+            {feedbackMessage}
+          </p>
+        </div>
+      </div>
+    {/snippet}
+    {#snippet footer()}
+      <div class="flex justify-center w-full">
+        <Button 
+          variant={feedbackType === 'success' ? 'primary' : 'danger'} 
+          onclick={() => showFeedbackModal = false} 
+          size="md"
+          class={feedbackType === 'success' ? '!bg-emerald-800 hover:!bg-emerald-700 px-8 text-white font-bold' : 'px-8 font-bold'}
+        >
+          {#snippet children()}
+            {feedbackType === 'success' ? 'Selesai' : 'Mengerti'}
+          {/snippet}
+        </Button>
+      </div>
+    {/snippet}
+  </Modal>
 </div>
 
 <style>
-  /* ═══════════════════════════════════════════════════
-     Modern Billing Panel Toggle Button
-     ═══════════════════════════════════════════════════ */
-  .billing-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 12px;
-    border: 1.5px solid #e2e8f0;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    color: #475569;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    white-space: nowrap;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .billing-toggle-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.04) 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .billing-toggle-btn:hover {
-    border-color: #a7f3d0;
-    color: #065f46;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
-    transform: translateY(-1px);
-  }
-
-  .billing-toggle-btn:hover::before {
-    opacity: 1;
-  }
-
-  .billing-toggle-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  }
-
-  .billing-toggle-btn--active {
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    border-color: #6ee7b7;
-    color: #065f46;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  }
-
-  .billing-toggle-btn--active::before {
-    opacity: 0;
-  }
-
-  .billing-toggle-btn--active:hover {
-    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-    border-color: #34d399;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  }
-
-  .billing-toggle-btn__icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    flex-shrink: 0;
-  }
-
-  .billing-toggle-btn:hover .billing-toggle-btn__icon {
-    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
-    transform: scale(1.05);
-  }
-
-  .billing-toggle-btn__label {
-    position: relative;
-    z-index: 1;
-    letter-spacing: 0.01em;
-  }
-
-  .billing-toggle-btn__indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.04);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    flex-shrink: 0;
-  }
-
-  .billing-toggle-btn--active .billing-toggle-btn__indicator {
-    background: rgba(16, 185, 129, 0.12);
-    color: #059669;
-  }
-
-  .billing-toggle-btn:hover .billing-toggle-btn__indicator {
-    background: rgba(16, 185, 129, 0.15);
-  }
-
   /* ═══════════════════════════════════════════════════
      Billing Panel Slide Animation
      ═══════════════════════════════════════════════════ */
@@ -550,17 +569,5 @@
 
   .billing-panel-wrapper--open .billing-panel-inner {
     overflow: visible;
-  }
-
-  /* Responsive: stack button text on very small screens */
-  @media (max-width: 400px) {
-    .billing-toggle-btn {
-      padding: 6px 12px;
-      font-size: 12px;
-    }
-    .billing-toggle-btn__icon {
-      width: 24px;
-      height: 24px;
-    }
   }
 </style>

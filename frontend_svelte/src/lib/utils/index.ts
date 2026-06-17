@@ -41,15 +41,15 @@ export function getMonthName(month: number): string {
 /**
  * Warna badge berdasarkan status invoice
  */
-export function getInvoiceStatusStyle(status: string): { bg: string; text: string; label: string } {
-  const map: Record<string, { bg: string; text: string; label: string }> = {
-    unpaid:    { bg: 'bg-amber-500/10',   text: 'text-amber-400',   label: 'Belum Bayar' },
-    pending:   { bg: 'bg-blue-500/10',    text: 'text-blue-400',    label: 'Menunggu' },
-    paid:      { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Lunas' },
-    expired:   { bg: 'bg-gray-500/10',    text: 'text-gray-400',    label: 'Kadaluwarsa' },
-    cancelled: { bg: 'bg-red-500/10',     text: 'text-red-400',     label: 'Dibatalkan' }
+export function getInvoiceStatusStyle(status: string): { bg: string; text: string; border: string; label: string } {
+  const map: Record<string, { bg: string; text: string; border: string; label: string }> = {
+    paid:      { bg: 'bg-emerald-50',  text: 'text-emerald-600', border: 'border-emerald-200', label: 'Lunas' },
+    unpaid:    { bg: 'bg-amber-50',    text: 'text-amber-600',   border: 'border-amber-200',   label: 'Belum Bayar' },
+    pending:   { bg: 'bg-blue-50',     text: 'text-blue-600',    border: 'border-blue-200',    label: 'Menunggu' },
+    cancelled: { bg: 'bg-red-50',      text: 'text-red-600',     border: 'border-red-200',     label: 'Batal' },
+    expired:   { bg: 'bg-gray-50',     text: 'text-gray-500',    border: 'border-gray-200',    label: 'Kedaluwarsa' }
   };
-  return map[status] ?? { bg: 'bg-gray-500/10', text: 'text-gray-400', label: status };
+  return map[status] ?? { bg: 'bg-gray-50', text: 'text-gray-500', border: 'border-gray-200', label: status };
 }
 
 /**

@@ -10,11 +10,11 @@ export default defineConfig({
 			cachedChecks: false
 		},
 		watch: {
-			usePolling: true // Membantu deteksi perubahan di lingkungan Docker/Virtual
+			usePolling: true
 		}
 	},
 	optimizeDeps: {
-		force: true // Paksa bundling ulang depedensi untuk menghindari cache lama
+		force: true
 	},
 	test: {
 		expect: { requireAssertions: true },

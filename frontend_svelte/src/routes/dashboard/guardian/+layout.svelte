@@ -32,7 +32,7 @@
 
 <SidebarLayout
   role="guardian"
-  roleLabel="Guardian"
+  roleLabel="Wali Santri (Guardian)"
   roleColor="blue"
   {menuItems}
   {userName}

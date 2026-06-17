@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Search, ChevronDown, ChevronUp, MapPin, Phone, Mail, User, Info, CheckCircle2, XCircle } from 'lucide-svelte';
+  import { Search, ChevronDown, ChevronUp, MapPin, Phone, Mail, User } from 'lucide-svelte';
   import { pengasuhApi } from '$lib/api';
   import { formatDate } from '$lib/utils';
-  import { Alert, Spinner, Badge, EmptyState, Card } from '$lib/components';
+  import { Alert, Spinner, Badge, Card, DataTable } from '$lib/components';
   import type { Student } from '$lib/types';
   import { getMuhadhorohLabel } from '$lib/types/student.types';
 
@@ -49,8 +49,8 @@
   <meta name="description" content="Monitoring data santri Pondok Pesantren Al-Anwar secara real-time." />
 </svelte:head>
 
-<div class="space-y-6">
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="space-y-6 flex flex-col flex-1 min-h-0">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-shrink-0">
     <div>
       <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-700 text-xs font-semibold uppercase tracking-wider mb-2">
         <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" aria-hidden="true"></span>
@@ -61,7 +61,7 @@
     </div>
   </div>
 
-  <Card class="!p-4 border-l-4 border-l-purple-500">
+  <Card class="!p-4 border-l-4 border-l-purple-500 flex-shrink-0">
     <div class="relative">
       <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
       <input
@@ -81,11 +81,15 @@
   {#if loading}
     <Spinner size="lg" />
   {:else}
-    <Card padding={false}>
-      <div class="overflow-x-auto">
+    <DataTable
+      isEmpty={students.length === 0}
+      emptyTitle="Tidak ada data santri ditemukan"
+      emptyDescription="Belum ada santri terdaftar atau kata kunci pencarian Anda tidak cocok."
+    >
+      {#snippet children()}
         <table class="w-full text-sm text-left" aria-label="Tabel monitoring data santri">
           <thead>
-            <tr class="bg-gray-50 border-b border-gray-100">
+            <tr class="bg-gray-50 border-b border-gray-100 whitespace-nowrap">
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">NIS</th>
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Santri</th>
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kelas & Semester</th>
@@ -94,7 +98,7 @@
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Detail</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
+          <tbody class="divide-y divide-gray-100 whitespace-nowrap">
             {#each students as student (student.id)}
               <tr class="hover:bg-purple-50/20 transition-colors cursor-pointer" onclick={() => toggleExpand(student.id)}>
                 <td class="px-5 py-4 font-mono text-purple-600 font-semibold text-xs">{student.student_number}</td>
@@ -110,7 +114,7 @@
                   {#if student.muhadhoroh_level === 0}
                     <Badge label="Lulus" variant="success" />
                   {:else}
-                    <div>
+                    <div class="inline-block align-middle">
                       <p class="text-sm font-bold text-gray-900">Muhadhoroh {student.muhadhoroh_level}</p>
                       <p class="text-xs text-purple-600 font-semibold">Semester {student.current_semester}</p>
                     </div>
@@ -191,13 +195,25 @@
                         </h4>
                         {#if student.addresses && student.addresses.length > 0}
                           {#each student.addresses as addr}
-                            <div class="bg-white rounded-lg border border-purple-100 p-3 space-y-1 text-xs">
-                              <p class="font-semibold text-gray-900">{addr.address_line || '-'}</p>
+                            <div class="bg-white rounded-lg border border-purple-100 p-3 space-y-1.5 text-xs">
+                              <p class="font-bold text-gray-950 leading-snug">{addr.address_line || '-'}</p>
+                              {#if addr.village || addr.district}
+                                <div class="flex justify-between items-center"><span class="text-gray-500">Desa / Kecamatan</span><span class="font-semibold text-gray-900">{[addr.village, addr.district].filter(Boolean).join(', ')}</span></div>
+                              {/if}
                               {#if addr.city || addr.province}
-                                <p class="text-gray-500">{[addr.city, addr.province].filter(Boolean).join(', ')}</p>
+                                <div class="flex justify-between items-center"><span class="text-gray-500">Kota / Provinsi</span><span class="font-semibold text-gray-900">{[addr.city, addr.province].filter(Boolean).join(', ')}</span></div>
+                              {/if}
+                              {#if addr.postal_code}
+                                <div class="flex justify-between items-center"><span class="text-gray-500">Kode Pos</span><span class="font-semibold text-gray-900">{addr.postal_code}</span></div>
+                              {/if}
+                              {#if addr.country && addr.country !== 'Indonesia'}
+                                <div class="flex justify-between items-center"><span class="text-gray-500">Negara</span><span class="font-semibold text-gray-900">{addr.country}</span></div>
                               {/if}
                               {#if addr.is_primary}
-                                <span class="inline-flex mt-1.5 px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-bold border border-purple-100">Utama</span>
+                                <div class="pt-1 border-t border-purple-100/50 flex justify-between items-center">
+                                  <span class="text-gray-500">Status</span>
+                                  <span class="inline-flex px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-bold border border-purple-100">Utama</span>
+                                </div>
                               {/if}
                             </div>
                           {/each}
@@ -209,19 +225,10 @@
                   </td>
                 </tr>
               {/if}
-            {:else}
-              <tr>
-                <td colspan="6">
-                  <EmptyState
-                    title="Tidak ada data santri ditemukan"
-                    description="Belum ada santri terdaftar atau kata kunci pencarian Anda tidak cocok."
-                  />
-                </td>
-              </tr>
             {/each}
           </tbody>
         </table>
-      </div>
-    </Card>
+      {/snippet}
+    </DataTable>
   {/if}
 </div>

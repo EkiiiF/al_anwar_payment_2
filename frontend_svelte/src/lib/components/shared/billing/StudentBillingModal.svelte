@@ -1,7 +1,7 @@
 <script lang="ts">
   import { User, Phone, Mail, MapPin, FileText } from 'lucide-svelte';
   import { Modal, Badge, Card, EmptyState } from '$lib/components';
-  import { formatDate, formatRupiah, getHijriMonthName, getMonthName } from '$lib/utils';
+  import { formatDate, formatRupiah, getHijriMonthName } from '$lib/utils';
   import type { Student } from '$lib/types';
 
   let {
@@ -88,12 +88,24 @@
             <div class="space-y-3">
               {#each selectedStudent.addresses as addr}
                 <div class="bg-slate-50/50 rounded-xl border border-slate-200 p-4 space-y-2 text-xs">
-                  <p class="font-bold text-slate-800 leading-snug">{addr.address_line || '-'}</p>
+                  <p class="font-extrabold text-slate-900 leading-snug">{addr.address_line || '-'}</p>
+                  {#if addr.village || addr.district}
+                    <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Desa / Kec</span><span class="font-bold text-slate-800">{[addr.village, addr.district].filter(Boolean).join(', ')}</span></div>
+                  {/if}
                   {#if addr.city || addr.province}
-                    <p class="text-slate-500 font-medium">{[addr.city, addr.province].filter(Boolean).join(', ')}</p>
+                    <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Kota / Prov</span><span class="font-bold text-slate-800">{[addr.city, addr.province].filter(Boolean).join(', ')}</span></div>
+                  {/if}
+                  {#if addr.postal_code}
+                    <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Kode Pos</span><span class="font-bold text-slate-800">{addr.postal_code}</span></div>
+                  {/if}
+                  {#if addr.country && addr.country !== 'Indonesia'}
+                    <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Negara</span><span class="font-bold text-slate-800">{addr.country}</span></div>
                   {/if}
                   {#if addr.is_primary}
-                    <Badge label="Utama" variant="info" class="text-[9px] py-0.5" />
+                    <div class="pt-1 border-t border-slate-200/50 flex justify-between items-center">
+                      <span class="text-slate-500 font-medium">Status</span>
+                      <Badge label="Utama" variant="info" class="text-[9px] py-0.5" />
+                    </div>
                   {/if}
                 </div>
               {/each}
@@ -122,8 +134,6 @@
                     {/if}
                     {#if invoice.hijri_month}
                       <span class="text-slate-400 font-normal"> · </span>{getHijriMonthName(invoice.hijri_month)} {invoice.hijri_year} H
-                    {:else}
-                      <span class="text-slate-400 font-normal"> · </span>{getMonthName(invoice.month)} {invoice.year}
                     {/if}
                   </p>
                   <p class="text-[10px] text-slate-400 font-mono mt-0.5">{invoice.invoice_number}</p>

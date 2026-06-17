@@ -12,6 +12,8 @@
   let password = $state('');
   let error    = $state('');
   let loading  = $state(false);
+  let usernameError = $state('');
+  let passwordError = $state('');
 
   onMount(() => {
     if ($auth.isAuthenticated) {
@@ -31,11 +33,29 @@
     username = '';
     password = '';
     error = '';
+    usernameError = '';
+    passwordError = '';
   });
 
   async function handleLogin(e: SubmitEvent) {
     e.preventDefault();
     error   = '';
+    usernameError = '';
+    passwordError = '';
+    loading = false;
+
+    let hasError = false;
+    if (!username.trim()) {
+      usernameError = 'Username atau NIS tidak boleh kosong.';
+      hasError = true;
+    }
+    if (!password) {
+      passwordError = 'Password tidak boleh kosong.';
+      hasError = true;
+    }
+
+    if (hasError) return;
+
     loading = true;
 
     try {
@@ -159,6 +179,8 @@
             bind:value={username}
             required
             autocomplete="username"
+            error={usernameError}
+            oninput={() => usernameError = ''}
           />
 
           <Input
@@ -169,6 +191,8 @@
             bind:value={password}
             required
             autocomplete="current-password"
+            error={passwordError}
+            oninput={() => passwordError = ''}
           />
 
           <Button type="submit" variant="primary" size="lg" {loading} class="w-full !mt-6">

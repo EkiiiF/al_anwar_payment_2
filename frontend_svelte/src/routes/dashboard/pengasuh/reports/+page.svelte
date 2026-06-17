@@ -2,13 +2,13 @@
   import { onMount } from 'svelte';
   import { BarChart3, Download, Filter, Search, FileText } from 'lucide-svelte';
   import { pengasuhApi } from '$lib/api';
-  import { formatRupiah, getMonthName, MONTH_NAMES } from '$lib/utils';
+  import { formatRupiah, getHijriMonthName, HIJRI_MONTH_NAMES } from '$lib/utils';
   import { Button, Alert, Spinner, Card, Badge, Select } from '$lib/components';
   import { toast } from '$lib/stores/toast';
 
   let filterPeriod   = $state('monthly');
-  let filterMonth    = $state(String(new Date().getMonth() + 1));
-  let filterYear     = $state(String(new Date().getFullYear()));
+  let filterMonth    = $state('10');
+  let filterYear     = $state('1447');
   let filterCategory = $state('');
 
   let reportData = $state<any>(null);
@@ -48,7 +48,7 @@
     { value: 'Ujian Semester',        label: 'Ujian Semester' }
   ];
 
-  const monthOptions = MONTH_NAMES.map((n, i) => ({ value: String(i + 1), label: n }));
+  const monthOptions = HIJRI_MONTH_NAMES.map((n, i) => ({ value: String(i + 1), label: n }));
 
   async function fetchReport() {
     loading = true;
@@ -186,9 +186,7 @@
                   </td>
                   <td class="px-5 py-3 text-gray-500">
                     {#if i.hijri_month}
-                      {getMonthName(Number(i.month))} {i.year} / {i.hijri_month}H {i.hijri_year}
-                    {:else}
-                      {getMonthName(Number(i.month))} {i.year}
+                      {getHijriMonthName(Number(i.hijri_month))} {i.hijri_year} H
                     {/if}
                   </td>
                   <td class="px-5 py-3 text-right font-black text-gray-900">{formatRupiah(Number(i.amount_due))}</td>

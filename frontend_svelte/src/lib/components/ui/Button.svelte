@@ -31,7 +31,7 @@
 
   const variants: Record<string, string> = {
     primary:   'bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white',
-    secondary: 'bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white',
+    secondary: 'bg-slate-600 hover:bg-slate-700 active:bg-slate-800 text-white',
     outline:   'bg-transparent border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100',
     danger:    'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white',
     ghost:     'bg-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100'

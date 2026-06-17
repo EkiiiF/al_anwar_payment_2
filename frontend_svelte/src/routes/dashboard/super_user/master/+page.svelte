@@ -30,6 +30,9 @@
   let catError     = $state('');
   const isCatEditing = $derived(!!editCatId);
 
+  let catNameError = $state('');
+  let catAmountError = $state('');
+
   let showStatModal     = $state(false);
   let editStatId        = $state('');
   let statName          = $state('');
@@ -38,6 +41,9 @@
   let statDesc          = $state('');
   let statError         = $state('');
   const isStatEditing = $derived(!!editStatId);
+
+  let statNameError = $state('');
+  let statDiscountError = $state('');
 
   $effect(() => {
     if (statName.trim().toLowerCase() === 'abdi dalem') {
@@ -106,15 +112,37 @@
 
   function openAddCategory() {
     editCatId = ''; catName = ''; catAmount = ''; catDesc = ''; catIsActive = true; catError = '';
+    catNameError = ''; catAmountError = '';
     showCatModal = true;
   }
   function openEditCategory(cat: Category) {
     editCatId = cat.id; catName = cat.name; catAmount = String(cat.base_amount);
     catDesc = cat.description ?? ''; catIsActive = cat.is_active; catError = '';
+    catNameError = ''; catAmountError = '';
     showCatModal = true;
   }
   async function handleSaveCategory(e: SubmitEvent) {
-    e.preventDefault(); submitting = true; catError = '';
+    e.preventDefault(); catError = ''; catNameError = ''; catAmountError = '';
+    
+    let hasError = false;
+    if (!catName.trim()) {
+      catNameError = 'Nama kategori wajib diisi.';
+      hasError = true;
+    }
+    if (!catAmount.trim()) {
+      catAmountError = 'Nominal wajib diisi.';
+      hasError = true;
+    } else {
+      const amt = parseFloat(catAmount);
+      if (isNaN(amt) || amt <= 0) {
+        catAmountError = 'Nominal harus berupa angka positif.';
+        hasError = true;
+      }
+    }
+
+    if (hasError) return;
+
+    submitting = true;
     try {
       const payload = { name: catName, base_amount: parseFloat(catAmount), description: catDesc, is_fixed: true, is_active: catIsActive };
       if (isCatEditing) await superUserApi.updateCategory(editCatId, payload);
@@ -132,15 +160,37 @@
 
   function openAddStatus() {
     editStatId = ''; statName = ''; statDiscount = '0'; statActiveBilling = 'true'; statDesc = ''; statError = '';
+    statNameError = ''; statDiscountError = '';
     showStatModal = true;
   }
   function openEditStatus(stat: StudentStatusType) {
     editStatId = stat.id; statName = stat.name; statDiscount = String(stat.discount_percentage);
     statActiveBilling = stat.is_active_billing ? 'true' : 'false'; statDesc = stat.description ?? ''; statError = '';
+    statNameError = ''; statDiscountError = '';
     showStatModal = true;
   }
   async function handleSaveStatus(e: SubmitEvent) {
-    e.preventDefault(); submitting = true; statError = '';
+    e.preventDefault(); statError = ''; statNameError = ''; statDiscountError = '';
+    
+    let hasError = false;
+    if (!statName.trim()) {
+      statNameError = 'Nama status wajib diisi.';
+      hasError = true;
+    }
+    if (!statDiscount.trim()) {
+      statDiscountError = 'Diskon wajib diisi.';
+      hasError = true;
+    } else {
+      const disc = parseFloat(statDiscount);
+      if (isNaN(disc) || disc < 0 || disc > 100) {
+        statDiscountError = 'Diskon harus berupa angka antara 0% hingga 100%.';
+        hasError = true;
+      }
+    }
+
+    if (hasError) return;
+
+    submitting = true;
     try {
       const payload = { name: statName, discount_percentage: parseFloat(statDiscount), is_active_billing: statActiveBilling === 'true', description: statDesc };
       if (isStatEditing) await superUserApi.updateStatusType(editStatId, payload);
@@ -324,8 +374,8 @@
   {#snippet children()}
     {#if catError}<Alert type="error" message={catError} class="mb-4" />{/if}
     <form id="cat-form" onsubmit={handleSaveCategory} class="space-y-4" novalidate>
-      <Input id="cat-name" label="Nama Kategori" bind:value={catName} required />
-      <Input id="cat-amount" label="Nominal (Rp)" type="number" bind:value={catAmount} required />
+      <Input id="cat-name" label="Nama Kategori" bind:value={catName} required error={catNameError} oninput={() => catNameError = ''} />
+      <Input id="cat-amount" label="Nominal (Rp)" type="number" bind:value={catAmount} required error={catAmountError} oninput={() => catAmountError = ''} />
       <Input id="cat-desc" label="Deskripsi (opsional)" bind:value={catDesc} />
       <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
         <p class="text-xs font-bold text-gray-700" id="cat-active-label">Status Aktif</p>
@@ -357,8 +407,8 @@
   {#snippet children()}
     {#if statError}<Alert type="error" message={statError} class="mb-4" />{/if}
     <form id="stat-form" onsubmit={handleSaveStatus} class="space-y-4" novalidate>
-      <Input id="stat-name" label="Nama Status" bind:value={statName} required />
-      <Input id="stat-discount" label="Diskon (%)" type="number" bind:value={statDiscount} required />
+      <Input id="stat-name" label="Nama Status" bind:value={statName} required error={statNameError} oninput={() => statNameError = ''} />
+      <Input id="stat-discount" label="Diskon (%)" type="number" bind:value={statDiscount} required error={statDiscountError} oninput={() => statDiscountError = ''} />
       <div class="flex flex-col gap-1.5">
         <label for="stat-billing" class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Dikenakan Tagihan?</label>
         <select id="stat-billing" bind:value={statActiveBilling}

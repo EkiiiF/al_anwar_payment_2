@@ -2,6 +2,7 @@ package repository
 
 import (
 	"github.com/EkiiiF/al_anwar_payment_2.git/internal/model/domain"
+	"github.com/EkiiiF/al_anwar_payment_2.git/internal/utils"
 	"gorm.io/gorm"
 )
 
@@ -30,10 +31,21 @@ func (r *SuperUserRepositoryImpl) CountPaidInvoices(db *gorm.DB) (int64, error) 
 }
 
 func (r *SuperUserRepositoryImpl) SumIncomeThisMonth(db *gorm.DB, month int, year int) (float64, error) {
+	var endYear, endMonth int
+	if month == 12 {
+		endYear = year + 1
+		endMonth = 1
+	} else {
+		endYear = year
+		endMonth = month + 1
+	}
+	startDate := utils.HijriToGregorian(year, month, 1)
+	endDate := utils.HijriToGregorian(endYear, endMonth, 1)
+
 	var total float64
 	err := db.Model(&domain.Payment{}).
 		Select("COALESCE(SUM(amount_paid), 0)").
-		Where("MONTH(payment_date) = ? AND YEAR(payment_date) = ? AND transaction_status = ?", month, year, "settlement").
+		Where("transaction_status = ? AND payment_date >= ? AND payment_date < ?", "settlement", startDate, endDate).
 		Scan(&total).Error
 	return total, err
 }
@@ -42,16 +54,39 @@ func (r *SuperUserRepositoryImpl) GetMonthlyIncomeForYear(db *gorm.DB, year int)
 	Month int
 	Total float64
 }, error) {
+	startDate := utils.HijriToGregorian(year, 1, 1)
+	endDate := utils.HijriToGregorian(year+1, 1, 1)
+
+	var payments []domain.Payment
+	err := db.Model(&domain.Payment{}).
+		Where("transaction_status = ? AND payment_date >= ? AND payment_date < ?", "settlement", startDate, endDate).
+		Find(&payments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	monthlyMap := make(map[int]float64)
+	for _, p := range payments {
+		if p.PaymentDate == nil {
+			continue
+		}
+		hDate := utils.GregorianToHijri(*p.PaymentDate)
+		monthlyMap[hDate.Month] += p.AmountPaid
+	}
+
 	var results []struct {
 		Month int
 		Total float64
 	}
-	err := db.Model(&domain.Payment{}).
-		Select("MONTH(payment_date) as month, SUM(amount_paid) as total").
-		Where("YEAR(payment_date) = ? AND transaction_status = ?", year, "settlement").
-		Group("MONTH(payment_date)").
-		Scan(&results).Error
-	return results, err
+	for m := 1; m <= 12; m++ {
+		if val, ok := monthlyMap[m]; ok {
+			results = append(results, struct {
+				Month int
+				Total float64
+			}{Month: m, Total: val})
+		}
+	}
+	return results, nil
 }
 
 func (r *SuperUserRepositoryImpl) FindAllStudents(db *gorm.DB, search string) ([]domain.Student, error) {
@@ -240,10 +275,10 @@ func (r *SuperUserRepositoryImpl) FindAllInvoices(db *gorm.DB, status string, mo
 		query = query.Where("status = ?", status)
 	}
 	if month > 0 {
-		query = query.Where("month = ?", month)
+		query = query.Where("hijri_month = ?", month)
 	}
 	if year > 0 {
-		query = query.Where("year = ?", year)
+		query = query.Where("hijri_year = ?", year)
 	}
 
 	var invoices []domain.Invoice
@@ -258,14 +293,24 @@ func (r *SuperUserRepositoryImpl) FindStudentsWithInvoicesPaginated(db *gorm.DB,
 		studentIDsQuery = studentIDsQuery.Where("status = ?", status)
 	}
 	if month > 0 {
-		studentIDsQuery = studentIDsQuery.Where("month = ?", month)
+		studentIDsQuery = studentIDsQuery.Where("hijri_month = ?", month)
 	}
 	if year > 0 {
-		studentIDsQuery = studentIDsQuery.Where("year = ?", year)
+		studentIDsQuery = studentIDsQuery.Where("hijri_year = ?", year)
 	}
 
 	var total int64
-	if err := studentIDsQuery.Count(&total).Error; err != nil {
+	countQuery := db.Model(&domain.Invoice{})
+	if status != "" {
+		countQuery = countQuery.Where("status = ?", status)
+	}
+	if month > 0 {
+		countQuery = countQuery.Where("hijri_month = ?", month)
+	}
+	if year > 0 {
+		countQuery = countQuery.Where("hijri_year = ?", year)
+	}
+	if err := countQuery.Distinct("student_id").Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -297,10 +342,10 @@ func (r *SuperUserRepositoryImpl) FindStudentsWithInvoicesPaginated(db *gorm.DB,
 			invoiceQuery = invoiceQuery.Where("status = ?", status)
 		}
 		if month > 0 {
-			invoiceQuery = invoiceQuery.Where("month = ?", month)
+			invoiceQuery = invoiceQuery.Where("hijri_month = ?", month)
 		}
 		if year > 0 {
-			invoiceQuery = invoiceQuery.Where("year = ?", year)
+			invoiceQuery = invoiceQuery.Where("hijri_year = ?", year)
 		}
 		var invoices []domain.Invoice
 		if err := invoiceQuery.Order("hijri_year desc, hijri_month desc").Find(&invoices).Error; err == nil {
@@ -421,10 +466,10 @@ func (r *SuperUserRepositoryImpl) FindAllInvoicesPaginated(db *gorm.DB, status s
 		query = query.Where("status = ?", status)
 	}
 	if month > 0 {
-		query = query.Where("month = ?", month)
+		query = query.Where("hijri_month = ?", month)
 	}
 	if year > 0 {
-		query = query.Where("year = ?", year)
+		query = query.Where("hijri_year = ?", year)
 	}
 
 	var total int64
@@ -450,7 +495,7 @@ func (r *SuperUserRepositoryImpl) FindAllActivityLogsPaginated(db *gorm.DB, page
 
 	offset := (page - 1) * limit
 	var logs []domain.ActivityLog
-	err := db.Order("created_at desc").
+	err := db.Preload("User").Order("created_at desc").
 		Limit(limit).
 		Offset(offset).
 		Find(&logs).Error

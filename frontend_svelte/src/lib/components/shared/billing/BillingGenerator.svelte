@@ -89,7 +89,7 @@
         />
       </div>
       <Button onclick={onGenerate} variant="primary" loading={generating} class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold h-[42px] px-6 rounded-lg shadow-sm">
-        {#snippet children()}Generate{/snippet}
+        {#snippet children()}Buat Tagihan{/snippet}
       </Button>
     </div>
   {:else}
@@ -111,7 +111,7 @@
         />
       </div>
       <Button onclick={onGenerate} variant="primary" loading={generating} class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold h-[42px] px-6 rounded-lg shadow-sm">
-        {#snippet children()}Generate{/snippet}
+        {#snippet children()}Buat Tagihan{/snippet}
       </Button>
     </div>
   {/if}

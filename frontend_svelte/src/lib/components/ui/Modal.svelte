@@ -43,13 +43,13 @@
 
 {#if open}
   <div
-    class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 animate-fade-in"
+    class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
     onclick={onBackdropClick}
     role="presentation"
   >
     <div
-      class="bg-white border border-slate-200/80 rounded-xl w-full {sizes[size]}
-             flex flex-col max-h-[90vh] animate-fade-in-up"
+      class="bg-white border border-slate-200 rounded-2xl w-full {sizes[size]}
+             flex flex-col max-h-[90vh] transform scale-95 sm:scale-100 transition-all duration-350 ease-out animate-fade-in-up"
     >
       {#if title}
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
@@ -63,13 +63,13 @@
           </button>
         </div>
       {/if}
-
+ 
       <div class="p-6 overflow-y-auto flex-1">
         {@render children()}
       </div>
-
+ 
       {#if footer}
-        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex-shrink-0">
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex-shrink-0">
           {@render footer()}
         </div>
       {/if}

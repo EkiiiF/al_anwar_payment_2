@@ -18,10 +18,10 @@ func (r *ReportRepositoryImpl) GetInvoiceReports(db *gorm.DB, filters map[string
 	query = query.Where("status = ?", "paid")
 
 	if year, _ := utils.InterfaceToInt(filters["year"]); year > 0 {
-		query = query.Where("year = ?", year)
+		query = query.Where("hijri_year = ?", year)
 	}
 	if month, _ := utils.InterfaceToInt(filters["month"]); month > 0 {
-		query = query.Where("month = ?", month)
+		query = query.Where("hijri_month = ?", month)
 	}
 	if categoryID, ok := filters["category_id"].(string); ok && categoryID != "" {
 		query = query.Where("category_id = ?", categoryID)
@@ -43,10 +43,10 @@ func (r *ReportRepositoryImpl) GetSummary(db *gorm.DB, filters map[string]interf
 
 	countQuery := db.Model(&domain.Invoice{})
 	if year > 0 {
-		countQuery = countQuery.Where("year = ?", year)
+		countQuery = countQuery.Where("hijri_year = ?", year)
 	}
 	if month > 0 {
-		countQuery = countQuery.Where("month = ?", month)
+		countQuery = countQuery.Where("hijri_month = ?", month)
 	}
 
 	countQuery.Session(&gorm.Session{}).Count(&totalInvoices)
@@ -58,10 +58,10 @@ func (r *ReportRepositoryImpl) GetSummary(db *gorm.DB, filters map[string]interf
 		Where("payments.transaction_status = ?", "settlement")
 
 	if year > 0 {
-		sumQuery = sumQuery.Where("invoices.year = ?", year)
+		sumQuery = sumQuery.Where("invoices.hijri_year = ?", year)
 	}
 	if month > 0 {
-		sumQuery = sumQuery.Where("invoices.month = ?", month)
+		sumQuery = sumQuery.Where("invoices.hijri_month = ?", month)
 	}
 
 	sumQuery.Select("COALESCE(SUM(payments.amount_paid), 0)").Scan(&totalAmountPaid)

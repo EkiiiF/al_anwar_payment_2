@@ -37,12 +37,12 @@
   let showLogoutConfirm = $state(false);
   let loggingOut      = $state(false);
 
-  const roleColorMap: Record<string, { badge: string; avatar: string; dot: string }> = {
-    emerald: { badge: 'bg-emerald-50 text-emerald-800',  avatar: 'bg-emerald-800',  dot: 'bg-emerald-600' },
-    teal:    { badge: 'bg-teal-50 text-teal-700',        avatar: 'bg-teal-700',     dot: 'bg-teal-500' },
-    blue:    { badge: 'bg-blue-100 text-blue-700',       avatar: 'bg-blue-700',     dot: 'bg-blue-500' }
+  const roleThemeMap: Record<string, { badge: string; avatar: string; dot: string; activeBg: string }> = {
+    super_user: { badge: 'bg-green-50 text-green-700',   avatar: 'bg-green-700',  dot: 'bg-green-600',  activeBg: 'bg-emerald-800 text-white' },
+    guardian:   { badge: 'bg-blue-50 text-blue-700',     avatar: 'bg-blue-700',   dot: 'bg-blue-600',   activeBg: 'bg-blue-700 text-white' },
+    pengasuh:   { badge: 'bg-purple-50 text-purple-800', avatar: 'bg-purple-850', dot: 'bg-purple-600', activeBg: 'bg-purple-800 text-white' }
   };
-  const rc = $derived(roleColorMap[roleColor]);
+  const rc = $derived(roleThemeMap[role] || roleThemeMap.super_user);
 
   const profilePath = $derived(`/dashboard/${role}/profile`);
 
@@ -102,7 +102,7 @@
           href={item.path}
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200
             {isActive(item.path)
-              ? 'bg-emerald-800 text-white'
+              ? rc.activeBg
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}"
           aria-current={isActive(item.path) ? 'page' : undefined}
         >
@@ -119,7 +119,7 @@
         href={profilePath}
         class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-200
           {isActive(profilePath)
-            ? 'bg-emerald-800 text-white'
+            ? rc.activeBg
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}"
       >
         {#if userName}
@@ -129,7 +129,7 @@
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold leading-tight truncate {isActive(profilePath) ? 'text-white' : 'text-slate-900'}">{userName}</p>
             {#if userEmail}
-              <p class="text-xs truncate {isActive(profilePath) ? 'text-emerald-200' : 'text-slate-400'}">{userEmail}</p>
+              <p class="text-xs truncate {isActive(profilePath) ? 'text-white/80' : 'text-slate-400'}">{userEmail}</p>
             {/if}
           </div>
         {:else}
@@ -224,7 +224,7 @@
             href={item.path}
             onclick={closeMobile}
             class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200
-              {isActive(item.path) ? 'bg-emerald-800 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}"
+              {isActive(item.path) ? rc.activeBg : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}"
             aria-current={isActive(item.path) ? 'page' : undefined}
           >
             <item.icon size={18} aria-hidden="true" />
@@ -239,7 +239,7 @@
           href={profilePath}
           onclick={closeMobile}
           class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
-            {isActive(profilePath) ? 'bg-emerald-800 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}"
+            {isActive(profilePath) ? rc.activeBg : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}"
         >
           {#if userName}
             <div class="w-8 h-8 rounded-full {rc.avatar} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
@@ -248,7 +248,7 @@
             <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold leading-tight truncate {isActive(profilePath) ? 'text-white' : 'text-slate-900'}">{userName}</p>
               {#if userEmail}
-                <p class="text-xs truncate {isActive(profilePath) ? 'text-emerald-200' : 'text-slate-400'}">{userEmail}</p>
+                <p class="text-xs truncate {isActive(profilePath) ? 'text-white/80' : 'text-slate-400'}">{userEmail}</p>
               {/if}
             </div>
           {:else}
@@ -269,14 +269,14 @@
   {/if}
 
   <!-- ─── Main Content ──────────────────────────────────────── -->
-  <main class="flex-1 flex flex-col overflow-hidden pt-14 md:pt-0" id="main-content">
+  <main class="flex-1 h-full overflow-y-auto pt-14 md:pt-0" id="main-content">
     <!-- Top bar dengan notification bell (khusus Desktop) -->
     {#if notifPath}
       <div class="hidden md:flex justify-end px-8 pt-6 pb-0 flex-shrink-0">
         <NotificationBell notifPath={notifPath} fetchEndpoint={notifEndpoint} />
       </div>
     {/if}
-    <div class="p-5 md:px-8 md:py-6 flex-1 flex flex-col min-h-0">
+    <div class="p-5 md:px-8 md:py-6 min-h-full flex flex-col">
       {@render children()}
     </div>
   </main>

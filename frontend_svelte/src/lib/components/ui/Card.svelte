@@ -18,8 +18,8 @@
 </script>
 
 <div
-  class="bg-white border border-slate-200/80 rounded-xl
-    {padding ? 'p-6' : ''}
+  class="bg-white border border-slate-200 rounded-2xl shadow-sm transition-all duration-200
+    {padding ? 'p-5 sm:p-6' : ''}
     {className}"
   {...rest}
 >

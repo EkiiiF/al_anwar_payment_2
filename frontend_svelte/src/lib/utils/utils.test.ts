@@ -5,7 +5,9 @@ import {
   getMonthName,
   getInvoiceStatusStyle,
   getInitials,
-  MONTH_NAMES
+  MONTH_NAMES,
+  getHijriMonthName,
+  HIJRI_MONTH_NAMES
 } from '$lib/utils';
 
 // ── formatRupiah ──────────────────────────────────────────
@@ -126,5 +128,23 @@ describe('getInitials', () => {
 
   it('❌ mengembalikan ?? jika nama kosong', () => {
     expect(getInitials('')).toBe('??');
+  });
+});
+
+// ── getHijriMonthName ─────────────────────────────────────
+describe('getHijriMonthName', () => {
+  it('✅ mengembalikan nama bulan Hijriah yang benar', () => {
+    expect(getHijriMonthName(1)).toBe('Muharram');
+    expect(getHijriMonthName(10)).toBe('Syawal');
+    expect(getHijriMonthName(12)).toBe('Dzulhijjah');
+  });
+
+  it('❌ mengembalikan - untuk bulan invalid', () => {
+    expect(getHijriMonthName(0)).toBe('-');
+    expect(getHijriMonthName(13)).toBe('-');
+  });
+
+  it('✅ HIJRI_MONTH_NAMES memiliki 12 elemen', () => {
+    expect(HIJRI_MONTH_NAMES.length).toBe(12);
   });
 });

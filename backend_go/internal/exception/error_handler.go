@@ -60,6 +60,6 @@ func ErrorHandler(ctx fiber.Ctx, err error) error {
 
 	log.Printf("[ERROR] Internal server error: %v", err)
 	return ctx.Status(fiber.StatusInternalServerError).JSON(
-		response.InternalServerError("Terjadi kesalahan pada server"),
+		response.InternalServerError(err.Error()),
 	)
 }

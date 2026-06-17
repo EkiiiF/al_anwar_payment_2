@@ -91,7 +91,7 @@ export interface GuardianStudentSummary {
 }
 
 export interface GuardianDashboardStats {
-  students: GuardianStudentSummary[];
+  student: Student;
   total_unpaid: number;
   unpaid_count: number;
   total_invoices: number;

@@ -9,7 +9,7 @@
     value = $bindable(''),
     required = false,
     disabled = false,
-    error = '',
+    error = $bindable(''),
     helper = '',
     autocomplete = undefined,
     class: className = '',
@@ -36,6 +36,11 @@
   function togglePassword() {
     showPassword = !showPassword;
   }
+
+  function handleInput(e: Event) {
+    error = '';
+    oninput?.(e);
+  }
 </script>
 
 <div class="flex flex-col gap-1.5 {className}">
@@ -54,7 +59,7 @@
       {required}
       {disabled}
       {autocomplete}
-      {oninput}
+      oninput={handleInput}
       bind:value
       class="w-full px-3 py-2.5 rounded-lg bg-white border text-slate-900 text-sm outline-none transition-colors duration-200
         placeholder:text-slate-400
@@ -62,7 +67,7 @@
         disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-50
         {isPassword ? 'pr-10' : ''}
         {error
-          ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+          ? 'border-red-400 focus:border-red-400 focus:ring-2 focus:ring-red-200'
           : 'border-slate-200'}"
     />
 

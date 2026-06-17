@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { onMount } from 'svelte';
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
   import Button from './Button.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -32,9 +33,36 @@
   const total = $derived(pagination?.total ?? 0);
   const showStart = $derived(((currentPage - 1) * limit) + 1);
   const showEnd = $derived(Math.min(currentPage * limit, total));
+
+  // Dynamically calculate max-height so table fills to viewport bottom
+  let containerEl: HTMLDivElement;
+  let maxHeight = $state('none');
+
+  function recalcHeight() {
+    if (!containerEl) return;
+    const rect = containerEl.getBoundingClientRect();
+    const viewportH = window.innerHeight;
+    const remaining = viewportH - rect.top - 24; // 24px bottom padding
+    maxHeight = `${Math.max(remaining, 300)}px`;
+  }
+
+  onMount(() => {
+    recalcHeight();
+    const ro = new ResizeObserver(recalcHeight);
+    ro.observe(document.body);
+    window.addEventListener('resize', recalcHeight);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', recalcHeight);
+    };
+  });
 </script>
 
-<div class="datatable">
+<div
+  class="datatable"
+  bind:this={containerEl}
+  style:max-height={maxHeight}
+>
   {#if headerSlot}
     <div class="datatable__header">
       {@render headerSlot()}
@@ -72,89 +100,3 @@
   {/if}
 </div>
 
-<style>
-  .datatable {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    background: white;
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .datatable__header {
-    flex-shrink: 0;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .datatable__body {
-    flex: 1;
-    overflow: auto;
-    min-height: 0;
-  }
-
-  /* Sticky thead within the scroll container */
-  .datatable__body :global(thead) {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  .datatable__body :global(thead tr) {
-    background: #f9fafb;
-  }
-
-  .datatable__empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem 1rem;
-    min-height: 200px;
-  }
-
-  .datatable__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 16px;
-    border-top: 1px solid #e2e8f0;
-    background: white;
-    flex-shrink: 0;
-  }
-
-  .datatable__footer-info {
-    font-size: 0.875rem;
-    color: #4b5563;
-    white-space: nowrap;
-  }
-
-  .datatable__footer-nav {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .datatable__footer-page {
-    padding: 6px 12px;
-    background: #f0fdf4;
-    color: #15803d;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    font-weight: 700;
-    border: 1px solid #bbf7d0;
-    white-space: nowrap;
-  }
-
-  @media (max-width: 640px) {
-    .datatable__footer {
-      flex-direction: column;
-      gap: 8px;
-    }
-    .datatable__footer-info {
-      font-size: 0.75rem;
-    }
-  }
-</style>

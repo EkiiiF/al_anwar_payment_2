@@ -57,6 +57,30 @@
   let guardianPassword= $state('');
   let guardianRelation= $state('Orang Tua');
 
+  let nisError = $state('');
+  let fullNameError = $state('');
+  let nikError = $state('');
+  let birthDateError = $state('');
+  let addressLineError = $state('');
+  let postalCodeError = $state('');
+  let guardianNameError = $state('');
+  let guardianPhoneError = $state('');
+  let guardianEmailError = $state('');
+  let guardianPasswordError = $state('');
+
+  function clearErrors() {
+    nisError = '';
+    fullNameError = '';
+    nikError = '';
+    birthDateError = '';
+    addressLineError = '';
+    postalCodeError = '';
+    guardianNameError = '';
+    guardianPhoneError = '';
+    guardianEmailError = '';
+    guardianPasswordError = '';
+  }
+
   const statusOptions = $derived(
     statuses.map(s => ({ value: s.id, label: `${s.name} (Diskon ${s.discount_percentage}%)` }))
   );
@@ -108,6 +132,7 @@
     nik = ''; birthDate = ''; gender = 'L';
     addressLine = ''; village = ''; district = ''; city = ''; province = ''; country = 'Indonesia'; postalCode = '';
     guardianName = ''; guardianPhone = ''; guardianEmail = ''; guardianPassword = ''; guardianRelation = 'Orang Tua';
+    clearErrors();
   }
 
   function openAdd() {
@@ -148,8 +173,84 @@
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
-    submitting = true;
+    clearErrors();
     modalError = '';
+
+    let hasError = false;
+
+    if (!nis.trim()) {
+      nisError = 'Nomor Induk (NIS) wajib diisi.';
+      hasError = true;
+    } else if (!/^\d+$/.test(nis)) {
+      nisError = 'NIS harus berupa angka saja.';
+      hasError = true;
+    } else if (nis.length < 5 || nis.length > 15) {
+      nisError = 'NIS harus berjumlah 5 hingga 15 digit.';
+      hasError = true;
+    }
+
+    if (!fullName.trim()) {
+      fullNameError = 'Nama lengkap wajib diisi.';
+      hasError = true;
+    } else if (fullName.trim().length < 3) {
+      fullNameError = 'Nama lengkap minimal 3 karakter.';
+      hasError = true;
+    }
+
+    if (nik.trim() && !/^\d{16}$/.test(nik.trim())) {
+      nikError = 'NIK harus berupa 16 digit angka.';
+      hasError = true;
+    }
+
+    if (birthDate) {
+      const bDate = new Date(birthDate);
+      const today = new Date();
+      if (bDate > today) {
+        birthDateError = 'Tanggal lahir tidak boleh di masa depan.';
+        hasError = true;
+      }
+    }
+
+    if (postalCode.trim() && !/^\d{5}$/.test(postalCode.trim())) {
+      postalCodeError = 'Kode pos harus berupa 5 digit angka.';
+      hasError = true;
+    }
+
+    if (!guardianName.trim()) {
+      guardianNameError = 'Nama wali santri wajib diisi.';
+      hasError = true;
+    } else if (guardianName.trim().length < 3) {
+      guardianNameError = 'Nama wali santri minimal 3 karakter.';
+      hasError = true;
+    }
+
+    if (!guardianPhone.trim()) {
+      guardianPhoneError = 'Nomor HP/WhatsApp wali wajib diisi.';
+      hasError = true;
+    } else if (!/^\+?[0-9]{9,15}$/.test(guardianPhone.trim().replace(/[\s-]/g, ''))) {
+      guardianPhoneError = 'Format nomor HP tidak valid (9-15 digit angka).';
+      hasError = true;
+    }
+
+    if (!guardianEmail.trim()) {
+      guardianEmailError = 'Email wali wajib diisi.';
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail.trim())) {
+      guardianEmailError = 'Format email tidak valid.';
+      hasError = true;
+    }
+
+    if (guardianPassword && guardianPassword.length < 8) {
+      guardianPasswordError = 'Password minimal 8 karakter.';
+      hasError = true;
+    }
+
+    if (hasError) {
+      modalError = 'Mohon periksa kembali input form Anda.';
+      return;
+    }
+
+    submitting = true;
     try {
       const payload = {
         nis, full_name: fullName,
@@ -252,7 +353,7 @@
       {#snippet children()}
         <table class="w-full text-sm text-left" aria-label="Tabel data santri">
           <thead>
-            <tr class="bg-gray-50 border-b border-gray-100">
+            <tr class="bg-gray-50 border-b border-gray-100 whitespace-nowrap">
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">NIS</th>
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Santri</th>
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kelas & Semester</th>
@@ -261,7 +362,7 @@
               <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
+          <tbody class="divide-y divide-gray-100 whitespace-nowrap">
             {#each students as student (student.id)}
               <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick={() => toggleExpand(student.id)}>
                 <td class="px-5 py-4 font-mono text-green-600 font-semibold text-xs">{student.student_number}</td>
@@ -277,7 +378,7 @@
                   {#if student.muhadhoroh_level === 0}
                     <Badge label="Lulus" variant="success" />
                   {:else}
-                    <div>
+                    <div class="inline-block align-middle">
                       <p class="text-sm font-bold text-gray-900">Muhadhoroh {student.muhadhoroh_level}</p>
                       <p class="text-xs text-emerald-600 font-semibold">Semester {student.current_semester}</p>
                     </div>
@@ -429,11 +530,11 @@
             Informasi Santri
           </legend>
 
-          <Input id="nis"      label="Nomor Induk (NIS)" bind:value={nis}      required helper="Digunakan sebagai username login guardian" />
-          <Input id="fullName" label="Nama Lengkap"       bind:value={fullName} required />
+          <Input id="nis"      label="Nomor Induk (NIS)" bind:value={nis}      required error={nisError} oninput={() => nisError = ''} helper="Digunakan sebagai username login guardian" />
+          <Input id="fullName" label="Nama Lengkap"       bind:value={fullName} required error={fullNameError} oninput={() => fullNameError = ''} />
           
           <div class="grid grid-cols-2 gap-4">
-            <Input id="nik" label="NIK" bind:value={nik} placeholder="Nomor Induk Kependudukan" />
+            <Input id="nik" label="NIK" bind:value={nik} placeholder="Nomor Induk Kependudukan" error={nikError} oninput={() => nikError = ''} />
             <div class="flex flex-col gap-1.5">
               <label for="gender" class="text-xs font-semibold text-gray-600 uppercase tracking-wider ml-0.5">Jenis Kelamin</label>
               <select id="gender" bind:value={gender} class="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none">
@@ -443,11 +544,11 @@
             </div>
           </div>
 
-          <Input id="birthDate" label="Tanggal Lahir" type="date" bind:value={birthDate} />
+          <Input id="birthDate" label="Tanggal Lahir" type="date" bind:value={birthDate} error={birthDateError} oninput={() => birthDateError = ''} />
 
           <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 space-y-3">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Alamat Lengkap</p>
-            <Input id="addressLine" label="Alamat (Jalan/Gang/RT/RW)" bind:value={addressLine} placeholder="Jl. Raya No.1 RT 01/RW 02" />
+            <Input id="addressLine" label="Alamat (Jalan/Gang/RT/RW)" bind:value={addressLine} placeholder="Jl. Raya No.1 RT 01/RW 02" error={addressLineError} oninput={() => addressLineError = ''} />
             <div class="grid grid-cols-2 gap-3">
               <Input id="village"  label="Desa / Kelurahan" bind:value={village}  placeholder="Desa" />
               <Input id="district" label="Kecamatan"        bind:value={district} placeholder="Kecamatan" />
@@ -457,7 +558,7 @@
               <Input id="province" label="Provinsi"         bind:value={province} placeholder="Provinsi" />
             </div>
             <div class="grid grid-cols-2 gap-3">
-              <Input id="postalCode" label="Kode Pos" bind:value={postalCode} placeholder="00000" />
+              <Input id="postalCode" label="Kode Pos" bind:value={postalCode} placeholder="00000" error={postalCodeError} oninput={() => postalCodeError = ''} />
               <Input id="country"    label="Negara"   bind:value={country}    placeholder="Indonesia" />
             </div>
           </div>
@@ -494,9 +595,9 @@
             Data & Akun Wali Santri
           </legend>
 
-          <Input id="guardianName"  label="Nama Wali Santri"  bind:value={guardianName}  required />
-          <Input id="guardianPhone" label="Nomor HP / WhatsApp"     bind:value={guardianPhone} required type="tel" />
-          <Input id="guardianEmail" label="Email"      bind:value={guardianEmail} required type="email"
+          <Input id="guardianName"  label="Nama Wali Santri"  bind:value={guardianName}  required error={guardianNameError} oninput={() => guardianNameError = ''} />
+          <Input id="guardianPhone" label="Nomor HP / WhatsApp"     bind:value={guardianPhone} required type="tel" error={guardianPhoneError} oninput={() => guardianPhoneError = ''} />
+          <Input id="guardianEmail" label="Email"      bind:value={guardianEmail} required type="email" error={guardianEmailError} oninput={() => guardianEmailError = ''}
                  helper="Untuk notifikasi tagihan otomatis" />
           <Select
             id="guardianRelation"
@@ -510,7 +611,7 @@
             <p class="text-xs text-blue-700 font-semibold">Kredensial Login Wali Santri </p>
             <Input id="guardianUsername" label="Username Login" value={nis} disabled
                    helper="Otomatis mengikuti Nomor Induk (NIS)" />
-            <Input id="guardianPassword" label="Password Login"  bind:value={guardianPassword} type="password"
+            <Input id="guardianPassword" label="Password Login"  bind:value={guardianPassword} type="password" error={guardianPasswordError} oninput={() => guardianPasswordError = ''}
                    helper={isEditing ? 'Kosongkan jika tidak ingin mengubah' : 'Default: password123'} />
           </div>
         </fieldset>

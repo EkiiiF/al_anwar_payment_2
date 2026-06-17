@@ -48,7 +48,7 @@
       chartInstance.destroy();
     }
 
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+    const months = ['Muharram', 'Safar', "Rabi'ul Awal", "Rabi'ul Akhir", 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', "Sya'ban", 'Ramadhan', 'Syawal', "Dzulqa'dah", 'Dzulhijjah'];
     const data = stats.monthly_payments.sort((a, b) => a.month - b.month).map(mp => mp.total);
 
     chartInstance = new Chart(chartCanvas, {

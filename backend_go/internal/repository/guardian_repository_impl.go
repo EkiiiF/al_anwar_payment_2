@@ -16,7 +16,11 @@ func NewGuardianRepository() GuardianRepository {
 func (r *GuardianRepositoryImpl) FindGuardianByUserID(ctx context.Context, db *gorm.DB, userID string) (domain.Guardian, error) {
 	var guardian domain.Guardian
 	err := db.WithContext(ctx).
-		Preload("Student").Preload("Student.Status").
+		Preload("Student").
+		Preload("Student.Status").
+		Preload("Student.Addresses").
+		Preload("Student.Guardians").
+		Preload("Student.Guardians.User").
 		Where("user_id = ?", userID).
 		First(&guardian).Error
 	return guardian, err
@@ -25,7 +29,11 @@ func (r *GuardianRepositoryImpl) FindGuardianByUserID(ctx context.Context, db *g
 func (r *GuardianRepositoryImpl) FindGuardiansByUserID(ctx context.Context, db *gorm.DB, userID string) ([]domain.Guardian, error) {
 	var guardians []domain.Guardian
 	err := db.WithContext(ctx).
-		Preload("Student").Preload("Student.Status").
+		Preload("Student").
+		Preload("Student.Status").
+		Preload("Student.Addresses").
+		Preload("Student.Guardians").
+		Preload("Student.Guardians.User").
 		Where("user_id = ?", userID).
 		Find(&guardians).Error
 	return guardians, err

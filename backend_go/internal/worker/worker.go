@@ -14,18 +14,20 @@ import (
 	"gorm.io/gorm"
 )
 
-// StartTokenCleanupWorker berjalan di background untuk menghapus token kadaluarsa.
+// StartTokenCleanupWorker berjalan di background untuk menghapus token kadaluarsa dan transaksi pending kadaluarsa.
 // Interval: setiap 1 jam.
 func StartTokenCleanupWorker(db *gorm.DB) {
 	go func() {
-		log.Println("[Worker] Token cleanup worker started")
+		log.Println("[Worker] Token & Payment cleanup worker started")
 		cleanupTokens(db)
+		cleanupExpiredPayments(db)
 
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
 		for range ticker.C {
 			cleanupTokens(db)
+			cleanupExpiredPayments(db)
 		}
 	}()
 }
@@ -193,6 +195,53 @@ func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, fo
 			}
 		} else {
 			log.Println("[Worker] Auto billing semester OFF")
+		}
+	}
+}
+
+// cleanupExpiredPayments mencari pembayaran pending yang sudah kadaluarsa (lebih dari 24 jam)
+// dan mengembalikannya ke status unpaid.
+func cleanupExpiredPayments(db *gorm.DB) {
+	log.Println("[Worker] Memulai pemeriksaan transaksi pending yang kadaluarsa...")
+
+	var expiredPayments []domain.Payment
+	expirationThreshold := time.Now().Add(-24 * time.Hour)
+	err := db.Preload("Invoice").
+		Where("(transaction_status = ? OR transaction_status = ?) AND created_at < ?", "pending", "pending_payment", expirationThreshold).
+		Find(&expiredPayments).Error
+
+	if err != nil {
+		log.Printf("[Worker] Gagal mencari transaksi kadaluarsa: %v", err)
+		return
+	}
+
+	if len(expiredPayments) == 0 {
+		log.Println("[Worker] Tidak ada transaksi pending yang kadaluarsa.")
+		return
+	}
+
+	log.Printf("[Worker] Ditemukan %d transaksi pending yang kadaluarsa. Memproses pembatalan...", len(expiredPayments))
+
+	for _, p := range expiredPayments {
+		err := db.Transaction(func(tx *gorm.DB) error {
+			statusExpired := "expire"
+			p.TransactionStatus = &statusExpired
+			
+			if err := tx.Save(&p).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Model(&domain.Invoice{}).Where("id = ?", p.InvoiceID).Update("status", "unpaid").Error; err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			log.Printf("[Worker] Gagal membatalkan transaksi %s: %v", p.ID, err)
+		} else {
+			log.Printf("[Worker] Transaksi %s (Invoice ID %s) telah kadaluarsa. Status dikembalikan ke unpaid.", p.ID, p.InvoiceID)
 		}
 	}
 }
