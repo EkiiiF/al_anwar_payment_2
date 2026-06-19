@@ -7,6 +7,7 @@ export interface Category {
   id: string;
   name: string;
   base_amount: number;
+  is_semester?: boolean;
   description?: string;
 }
 
@@ -79,6 +80,7 @@ export interface SuperUserDashboardStats {
   monthly_payments: MonthlyPaymentStat[];
   semester_stats: SemesterPaymentStat[];
   current_hijri: HijriMonthInfo;
+  available_years: number[];
 }
 
 export interface GuardianStudentSummary {

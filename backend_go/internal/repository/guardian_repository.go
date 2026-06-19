@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// GuardianRepository — kontrak akses data wali santri.
 type GuardianRepository interface {
 	FindGuardianByUserID(ctx context.Context, db *gorm.DB, userID string) (domain.Guardian, error)
 	FindGuardiansByUserID(ctx context.Context, db *gorm.DB, userID string) ([]domain.Guardian, error)

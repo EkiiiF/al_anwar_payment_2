@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { guardianApi } from '$lib/api';
   import { formatRupiah, formatDate, getHijriMonthName } from '$lib/utils';
-  import { Spinner, Alert, Card, Badge, EmptyState } from '$lib/components';
+  import { Spinner, Alert, Card, Badge, EmptyState, Button, Paginator } from '$lib/components';
   import type { Payment } from '$lib/types';
   import { Receipt, Printer, CheckCircle2, X, Clock, XCircle } from 'lucide-svelte';
   import logo from '$lib/assets/logo.png';
@@ -43,6 +43,14 @@
   );
 
   let selectedTransaction = $state<any>(null);
+
+  let page = $state(1);
+  let limit = $state(5);
+  const totalTransactions = $derived(transactionsList.length);
+  const totalPages = $derived(Math.ceil(totalTransactions / limit) || 1);
+  const paginatedTransactions = $derived(
+    transactionsList.slice((page - 1) * limit, page * limit)
+  );
 
   onMount(async () => {
     try {
@@ -124,7 +132,7 @@
         text: 'text-amber-700',
         label: 'Menunggu Pembayaran',
         iconBg: 'bg-amber-100 border-amber-200',
-        iconColor: 'text-amber-650',
+        iconColor: 'text-amber-600',
         badgeVariant: 'warning' as const
       };
     } else {
@@ -163,50 +171,61 @@
       />
     </Card>
   {:else}
-    <div class="grid grid-cols-1 gap-4">
-      {#each transactionsList as tx (tx.id)}
-        <Card>
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-start gap-4">
-              <div class="p-3 rounded-xl bg-green-100 border border-green-200 flex-shrink-0">
-                <Receipt size={20} class="text-green-700" aria-hidden="true" />
-              </div>
-              <div>
-                <p class="font-bold text-gray-900">
-                  Pembayaran {tx.invoices.length} Tagihan
-                </p>
-                <div class="flex flex-wrap gap-1 mt-1">
-                  {#each tx.invoices as inv}
-                    <span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                      {getHijriMonthName(inv.hijri_month)} {inv.hijri_year} H
-                    </span>
-                  {/each}
+    <div class="space-y-4">
+      <div class="grid grid-cols-1 gap-4">
+        {#each paginatedTransactions as tx (tx.id)}
+          <Card>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-start gap-4">
+                <div class="p-3 rounded-xl bg-green-100 border border-green-200 flex-shrink-0">
+                  <Receipt size={20} class="text-green-700" aria-hidden="true" />
                 </div>
-                <p class="text-xs font-mono text-gray-400 mt-1.5">{tx.external_id ?? tx.id}</p>
-                <p class="text-xs text-gray-500 mt-1">{formatDate(tx.payment_date, true)}</p>
-                {#if tx.payment_method}
-                  <p class="text-xs text-gray-400 mt-0.5">Via: {tx.payment_method}</p>
-                {/if}
+                <div>
+                  <p class="font-bold text-gray-900">
+                    Pembayaran {tx.invoices.length} Tagihan
+                  </p>
+                  <div class="flex flex-wrap gap-1 mt-1">
+                    {#each tx.invoices as inv}
+                      <span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                        {getHijriMonthName(inv.hijri_month)} {inv.hijri_year} H
+                      </span>
+                    {/each}
+                  </div>
+                  <p class="text-xs font-mono text-gray-400 mt-1.5">{tx.external_id ?? tx.id}</p>
+                  <p class="text-xs text-gray-500 mt-1">{formatDate(tx.payment_date, true)}</p>
+                  {#if tx.payment_method}
+                    <p class="text-xs text-gray-400 mt-0.5">Via: {tx.payment_method}</p>
+                  {/if}
+                </div>
+              </div>
+
+              <div class="flex flex-col sm:items-end gap-2">
+                <p class="text-xl font-black text-gray-900">{formatRupiah(tx.total_amount)}</p>
+                <Badge
+                  label={translateTransactionStatus(tx.transaction_status ?? '')}
+                  variant={getStatusVariant(tx.transaction_status ?? '')}
+                  dot
+                />
+                <button
+                  onclick={() => viewReceipt(tx)}
+                  class="text-xs text-green-600 hover:text-green-700 underline underline-offset-2 transition-colors font-semibold"
+                >
+                  Lihat Struk
+                </button>
               </div>
             </div>
-
-            <div class="flex flex-col sm:items-end gap-2">
-              <p class="text-xl font-black text-gray-900">{formatRupiah(tx.total_amount)}</p>
-              <Badge
-                label={translateTransactionStatus(tx.transaction_status ?? '')}
-                variant={getStatusVariant(tx.transaction_status ?? '')}
-                dot
-              />
-              <button
-                onclick={() => viewReceipt(tx)}
-                class="text-xs text-green-600 hover:text-green-700 underline underline-offset-2 transition-colors font-semibold"
-              >
-                Lihat Struk
-              </button>
-            </div>
-          </div>
-        </Card>
-      {/each}
+          </Card>
+        {/each}
+      </div>
+      <Paginator
+        page={page}
+        limit={limit}
+        total={totalTransactions}
+        pages={totalPages}
+        label="transaksi"
+        onPageChange={(p) => page = p}
+        onLimitChange={(l) => { limit = l; page = 1; }}
+      />
     </div>
   {/if}
 </div>
@@ -273,34 +292,39 @@
       </div>
 
       <div class="p-4 text-center">
-        <p class="text-xs text-slate-650 font-bold">Pondok Pesantren Al-Anwar</p>
+        <p class="text-xs text-slate-600 font-bold">Pondok Pesantren Al-Anwar</p>
         <p class="text-[10px] text-slate-400 mt-1 leading-normal">Dusun Kauman, Desa Selo, RT 05/RW 08<br/>Kecamatan Tawangharjo Kabupaten Grobogan</p>
       </div>
 
       <div class="flex gap-3 p-4 border-t border-slate-100">
         {#if selectedTransaction.transaction_status === 'settlement' || selectedTransaction.transaction_status === 'paid' || selectedTransaction.transaction_status === 'capture'}
-          <button
+          <Button
             onclick={printReceipt}
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-sm transition-all cursor-pointer"
+            variant="primary"
+            class="flex-1"
           >
-            <Printer size={15} aria-hidden="true" />
-            Cetak Struk
-          </button>
+            {#snippet children()}
+              <Printer size={15} aria-hidden="true" />
+              <span>Cetak Struk</span>
+            {/snippet}
+          </Button>
         {:else if (selectedTransaction.transaction_status === 'pending' || selectedTransaction.transaction_status === 'pending_payment') && selectedTransaction.snap_token}
-          <button
+          <Button
             onclick={() => resumePayment(selectedTransaction.snap_token)}
             disabled={paying}
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-all cursor-pointer disabled:opacity-50"
+            variant="primary"
+            class="flex-1"
           >
-            Selesaikan Pembayaran
-          </button>
+            {#snippet children()}Selesaikan Pembayaran{/snippet}
+          </Button>
         {/if}
-        <button
+        <Button
           onclick={() => selectedTransaction = null}
-          class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all cursor-pointer"
+          variant="outline"
+          class="flex-1"
         >
-          Tutup
-        </button>
+          {#snippet children()}Tutup{/snippet}
+        </Button>
       </div>
     </div>
   </div>

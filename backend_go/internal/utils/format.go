@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// FormatRupiah — format angka ke mata uang Rupiah (Rp 40.000).
 func FormatRupiah(amount float64) string {
 	res := fmt.Sprintf("Rp %.0f", amount)
 	res = strings.ReplaceAll(res, " ", "")

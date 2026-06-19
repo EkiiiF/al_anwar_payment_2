@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// SettingRepository — kontrak akses data konfigurasi sistem.
 type SettingRepository interface {
 	FindAll(db *gorm.DB) ([]domain.Setting, error)
 	FindByKey(db *gorm.DB, key string) (domain.Setting, error)

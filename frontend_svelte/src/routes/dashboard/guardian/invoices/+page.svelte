@@ -187,7 +187,7 @@
 <div class="space-y-6">
   <div>
     <h1 class="text-2xl font-black text-gray-900 tracking-tight">Tagihan Saya</h1>
-    <p class="text-gray-555 text-sm mt-1">Pilih satu atau beberapa tagihan untuk dibayar sekaligus.</p>
+    <p class="text-slate-500 text-sm mt-1">Pilih satu atau beberapa tagihan untuk dibayar sekaligus.</p>
   </div>
 
   {#if error}

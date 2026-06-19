@@ -7,14 +7,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// GuardianControllerImpl — implementasi GuardianController.
 type GuardianControllerImpl struct {
 	GuardianService service.GuardianService
 }
 
+// NewGuardianController — konstruktor GuardianController.
 func NewGuardianController(guardianService service.GuardianService) GuardianController {
 	return &GuardianControllerImpl{GuardianService: guardianService}
 }
 
+// GetDashboard — statistik dashboard wali santri.
 func (ctrl *GuardianControllerImpl) GetDashboard(c fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(c)
 	if err != nil {
@@ -27,6 +30,7 @@ func (ctrl *GuardianControllerImpl) GetDashboard(c fiber.Ctx) error {
 	return c.JSON(response.Success(res))
 }
 
+// GetInvoices — daftar invoice santri yang diampu.
 func (ctrl *GuardianControllerImpl) GetInvoices(c fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(c)
 	if err != nil {
@@ -39,6 +43,7 @@ func (ctrl *GuardianControllerImpl) GetInvoices(c fiber.Ctx) error {
 	return c.JSON(response.Success(res))
 }
 
+// GetPayments — riwayat pembayaran santri.
 func (ctrl *GuardianControllerImpl) GetPayments(c fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(c)
 	if err != nil {
@@ -51,6 +56,7 @@ func (ctrl *GuardianControllerImpl) GetPayments(c fiber.Ctx) error {
 	return c.JSON(response.Success(res))
 }
 
+// GetNotifications — daftar notifikasi user.
 func (ctrl *GuardianControllerImpl) GetNotifications(c fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(c)
 	if err != nil {
@@ -63,6 +69,7 @@ func (ctrl *GuardianControllerImpl) GetNotifications(c fiber.Ctx) error {
 	return c.JSON(response.Success(res))
 }
 
+// MarkNotificationRead — tandai notifikasi sudah dibaca.
 func (ctrl *GuardianControllerImpl) MarkNotificationRead(c fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(c)
 	if err != nil {

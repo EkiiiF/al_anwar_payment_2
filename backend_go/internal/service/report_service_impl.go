@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"time"
 
 	"github.com/EkiiiF/al_anwar_payment_2.git/internal/repository"
 	"gorm.io/gorm"
@@ -43,7 +44,31 @@ func (s *ReportServiceImpl) ExportCSV(ctx context.Context, filters map[string]in
 	buf := new(bytes.Buffer)
 	writer := csv.NewWriter(buf)
 
-	// Header
+	// Write metadata rows
+	exporter, _ := filters["exporter"].(string)
+	if exporter == "" {
+		exporter = "Sistem"
+	}
+	yearVal, _ := filters["year"].(string)
+	monthVal, _ := filters["month"].(string)
+
+	writer.Write([]string{"LAPORAN KEUANGAN PONDOK PESANTREN AL-ANWAR"})
+	writer.Write([]string{"Nama Laporan", "Laporan Pemasukan Santri (Lunas)"})
+	writer.Write([]string{"Dibuat Oleh", exporter})
+	
+	// Convert server time to local or standard display format
+	importTime := time.Now().Format("02 January 2006 15:04:05 MST")
+	writer.Write([]string{"Waktu Ekspor", importTime})
+
+	if yearVal != "" {
+		if monthVal != "" {
+			writer.Write([]string{"Periode", fmt.Sprintf("Bulan %s Tahun %s H", monthVal, yearVal)})
+		} else {
+			writer.Write([]string{"Periode", fmt.Sprintf("Tahun %s H", yearVal)})
+		}
+	}
+	writer.Write([]string{""}) // Empty row as separator
+
 	if err := writer.Write([]string{"No. Invoice", "Nama Santri", "NIS", "Bulan", "Tahun", "Nominal", "Status"}); err != nil {
 		return nil, fmt.Errorf("gagal menulis header CSV: %w", err)
 	}

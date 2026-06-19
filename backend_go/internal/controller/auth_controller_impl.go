@@ -11,14 +11,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// AuthControllerImpl — implementasi AuthController.
 type AuthControllerImpl struct {
 	AuthService service.AuthService
 }
 
+// NewAuthController — konstruktor AuthController.
 func NewAuthController(authService service.AuthService) AuthController {
 	return &AuthControllerImpl{AuthService: authService}
 }
 
+// Login — proses autentikasi dan menghasilkan JWT token.
 func (c *AuthControllerImpl) Login(ctx fiber.Ctx) error {
 	var req request.LoginRequest
 	if err := ctx.Bind().JSON(&req); err != nil {
@@ -33,6 +36,7 @@ func (c *AuthControllerImpl) Login(ctx fiber.Ctx) error {
 	return ctx.JSON(response.Success(res))
 }
 
+// Logout — blacklist token dan logout user.
 func (c *AuthControllerImpl) Logout(ctx fiber.Ctx) error {
 	authHeader := ctx.Get("Authorization")
 	if authHeader == "" {
@@ -49,6 +53,7 @@ func (c *AuthControllerImpl) Logout(ctx fiber.Ctx) error {
 	return ctx.JSON(response.SuccessMessage("Berhasil logout"))
 }
 
+// GetProfile — ambil profil user yang sedang login.
 func (c *AuthControllerImpl) GetProfile(ctx fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(ctx)
 	if err != nil {
@@ -62,6 +67,7 @@ func (c *AuthControllerImpl) GetProfile(ctx fiber.Ctx) error {
 	return ctx.JSON(response.Success(res))
 }
 
+// UpdateProfile — perbarui profil user yang sedang login.
 func (c *AuthControllerImpl) UpdateProfile(ctx fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(ctx)
 	if err != nil {
@@ -80,6 +86,7 @@ func (c *AuthControllerImpl) UpdateProfile(ctx fiber.Ctx) error {
 	return ctx.JSON(response.Success(res))
 }
 
+// ChangePassword — ganti password user yang sedang login.
 func (c *AuthControllerImpl) ChangePassword(ctx fiber.Ctx) error {
 	userID, err := utils.UserIDFromCtx(ctx)
 	if err != nil {

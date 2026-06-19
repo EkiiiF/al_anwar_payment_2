@@ -10,7 +10,7 @@ type StudentStatusType struct {
 	ID                 string         `json:"id"                  gorm:"type:char(36);primaryKey"`
 	Name               string         `json:"name"                gorm:"type:varchar(50);unique;not null;index"`
 	DiscountPercentage float64        `json:"discount_percentage" gorm:"type:decimal(5,2);default:0.00"`
-	IsActiveBilling    bool           `json:"is_active_billing"   gorm:"default:true;index"`
+	IsActiveBilling    bool           `json:"is_active_billing"   gorm:"index"`
 	IsDefault          bool           `json:"is_default"          gorm:"default:false"`
 	Description        string         `json:"description"         gorm:"type:text"`
 	Students           []Student      `json:"students,omitempty"  gorm:"foreignKey:StatusID;constraint:OnDelete:RESTRICT"`

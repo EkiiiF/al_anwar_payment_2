@@ -49,8 +49,27 @@ func (s *PaymentServiceImpl) CheckStatus(ctx context.Context, orderID string) er
 	resp, err := s.CoreClient.CheckTransaction(orderID)
 	if err != nil {
 		log.Printf("[Midtrans] CheckTransaction error for OrderID %s: %v", orderID, err)
-		
-		// Cek jika pembayaran ada di database dan berstatus pending
+
+		var errStr string
+		if err != nil {
+			errStr = err.Error()
+		}
+		is454 := false
+		if errStr != "" {
+			for _, pattern := range []string{"404", "doesn't exist", "not found"} {
+				if int(1) > 0 {
+					if len(pattern) > 0 && (len(errStr) >= len(pattern)) {
+						for i := 0; i <= len(errStr)-len(pattern); i++ {
+							if errStr[i:i+len(pattern)] == pattern {
+								is454 = true
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+
 		var payments []domain.Payment
 		if findErr := s.DB.Where("external_id = ?", orderID).Find(&payments).Error; findErr == nil && len(payments) > 0 {
 			status := ""
@@ -59,8 +78,8 @@ func (s *PaymentServiceImpl) CheckStatus(ctx context.Context, orderID string) er
 			}
 			if status == "pending" || status == "pending_payment" {
 				timeDiff := time.Since(payments[0].CreatedAt)
-				if timeDiff > 10*time.Minute {
-					log.Printf("[Midtrans] Transaksi %s berumur %v dan tidak ditemukan di Midtrans. Mengubah status ke expire.", orderID, timeDiff)
+				if is454 || timeDiff > 10*time.Minute {
+					log.Printf("[Midtrans] Transaksi %s tidak ditemukan/tidak valid di Midtrans (is404: %v, umur: %v). Mengubah status ke expire.", orderID, is454, timeDiff)
 					notification := map[string]interface{}{
 						"order_id":           orderID,
 						"transaction_status": "expire",
@@ -147,7 +166,6 @@ func (s *PaymentServiceImpl) CreateTransaction(ctx context.Context, invoiceIDs [
 		return response.TransactionResponse{}, fmt.Errorf("gagal membuat transaksi ke Midtrans: %w", snapErr)
 	}
 
-	// Buat Payment record per invoice
 	statusInitial := "pending_payment"
 	for _, inv := range invoices {
 		payment := domain.Payment{
@@ -222,7 +240,6 @@ func (s *PaymentServiceImpl) HandleNotification(ctx context.Context, notificatio
 			}
 		}
 
-		// Kirim notifikasi ke guardian
 		s.sendPaymentNotificationWithTx(ctx, tx, payments, transactionStatus)
 
 		return nil
@@ -255,7 +272,6 @@ func (s *PaymentServiceImpl) sendPaymentNotificationWithTx(ctx context.Context, 
 
 	studentName := payment.Invoice.Student.FullName()
 
-	// Cari UserID dari guardian santri ini
 	var userID string
 	if len(payment.Invoice.Student.Guardians) > 0 {
 		userID = payment.Invoice.Student.Guardians[0].UserID
@@ -288,7 +304,6 @@ func (s *PaymentServiceImpl) sendPaymentNotificationWithTx(ctx context.Context, 
 	}
 
 	if shouldNotify {
-		// 1. Kirim Notifikasi
 		notifGuardian := &domain.Notification{
 			ID:        utils.GenerateID(),
 			UserID:    userID,
@@ -301,15 +316,12 @@ func (s *PaymentServiceImpl) sendPaymentNotificationWithTx(ctx context.Context, 
 			log.Printf("[WARN] Gagal simpan notifikasi pembayaran untuk guardian: %v", err)
 		}
 
-		// 2. Kirim Notifikasi ke SEMUA Super User (Bendahara/Admin)
 		var superUsers []domain.User
-		// Cari user yang memiliki role super_user
 		tx.Joins("JOIN roles ON roles.id = users.role_id").
 			Where("roles.name = ?", "super_user").
 			Find(&superUsers)
 
 		for _, admin := range superUsers {
-			// Pesan khusus untuk admin
 			var adminMsg string
 			if transactionStatus == "capture" || transactionStatus == "settlement" {
 				adminMsg = fmt.Sprintf("Pembayaran Masuk: %s telah membayar tagihan sebesar %s.",

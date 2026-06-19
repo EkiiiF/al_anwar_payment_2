@@ -25,14 +25,14 @@
           <div class="min-w-0">
             <p class="font-bold text-slate-900 text-sm tracking-tight">
               {#if invoice.category}
-                <span class="text-emerald-805 font-bold">{invoice.category.name}</span>
+                <span class="text-emerald-800 font-bold">{invoice.category.name}</span>
               {/if}
               <span class="text-slate-400 font-normal"> · </span>
               {#if invoice.hijri_month}
                 {getHijriMonthName(invoice.hijri_month)} {invoice.hijri_year} H
               {/if}
             </p>
-            <p class="text-[10px] font-mono text-slate-450 mt-0.5">{invoice.invoice_number}</p>
+            <p class="text-[10px] font-mono text-slate-400 mt-0.5">{invoice.invoice_number}</p>
             {#if invoice.semester}
               <div class="flex items-center gap-2 mt-1">
                 <Badge label={`Sem ${invoice.semester}`} variant="warning" class="text-[9px] py-0.5" />
@@ -42,7 +42,7 @@
           </div>
 
           <div class="text-left sm:text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1">
-            <p class="font-extrabold text-slate-950 text-sm leading-none">{formatRupiah(invoice.amount_due)}</p>
+            <p class="font-extrabold text-slate-900 text-sm leading-none">{formatRupiah(invoice.amount_due)}</p>
             <div class="flex flex-col items-end gap-1.5 mt-1">
               <span class="text-xs font-bold {style.text} {style.bg} px-2 py-0.5 rounded border {style.border}">{style.label}</span>
               {#if invoice.status === 'pending' && invoice.payments && invoice.payments.length > 0}
@@ -52,7 +52,7 @@
                     <button 
                       type="button"
                       onclick={(e) => { e.stopPropagation(); resumePayment!(lastPayment.snap_token!); }}
-                      class="text-[10px] font-extrabold text-emerald-650 hover:text-emerald-700 underline transition-colors"
+                      class="text-[10px] font-extrabold text-emerald-600 hover:text-emerald-700 underline transition-colors"
                     >
                       Bayar Sekarang
                     </button>

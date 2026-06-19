@@ -150,7 +150,7 @@ func GetSemesterInfo(hijriMonth, hijriYear int) SemesterInfo {
 }
 
 func IsBillableMonth(hijriMonth int) bool {
-	return hijriMonth != HijriRamadhan
+	return true
 }
 func GetAcademicYearLabel(hijriMonth, hijriYear int) string {
 	startYear := hijriYear

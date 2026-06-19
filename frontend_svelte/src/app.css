@@ -61,6 +61,19 @@
 
   /* ── Font ── */
   --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+
+  /* ── Custom Animations ── */
+  --animate-slide-in-right: slide-in-right 0.25s ease-out forwards;
+  --animate-shrink-progress: shrink-progress linear forwards;
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(1rem); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes shrink-progress {
+    from { width: 100%; }
+    to   { width: 0%; }
+  }
 }
 
 /* ============================================================
@@ -205,4 +218,34 @@ body {
   .datatable__footer-info {
     font-size: 0.75rem;
   }
+}
+
+/* ── Billing Panel Slide Animation ── */
+.billing-panel-wrapper {
+  display: grid;
+  transition: grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-bottom 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.billing-panel-wrapper--open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-bottom: 24px;
+}
+
+.billing-panel-wrapper--closed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-bottom: 0;
+  pointer-events: none;
+}
+
+.billing-panel-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.billing-panel-wrapper--open .billing-panel-inner {
+  overflow: visible;
 }

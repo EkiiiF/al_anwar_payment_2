@@ -6,14 +6,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// LogControllerImpl — implementasi LogController.
 type LogControllerImpl struct {
 	LogService service.LogService
 }
 
+// NewLogController — konstruktor LogController.
 func NewLogController(logService service.LogService) LogController {
 	return &LogControllerImpl{LogService: logService}
 }
 
+// GetLogs — ambil seluruh log aktivitas.
 func (ctrl *LogControllerImpl) GetLogs(c fiber.Ctx) error {
 	res, err := ctrl.LogService.GetLogs(c.Context())
 	if err != nil {

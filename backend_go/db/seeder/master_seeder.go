@@ -17,6 +17,7 @@ func SeedMasterData(db *gorm.DB) {
 			BaseAmount:  350000,
 			IsFixed:     true,
 			IsActive:    true,
+			IsSemester:  false,
 			Description: "Tagihan Syahriyyah Pondok Bulanan — operasional pondok",
 		},
 		{
@@ -25,6 +26,7 @@ func SeedMasterData(db *gorm.DB) {
 			BaseAmount:  40000,
 			IsFixed:     true,
 			IsActive:    true,
+			IsSemester:  true,
 			Description: "Tagihan Syahriyyah Muhadhoroh Bulanan — sekolah ngaji",
 		},
 		{
@@ -33,6 +35,7 @@ func SeedMasterData(db *gorm.DB) {
 			BaseAmount:  20000,
 			IsFixed:     true,
 			IsActive:    true,
+			IsSemester:  true,
 			Description: "Biaya daftar ulang — dikenakan di awal tahun ajaran (Syawal)",
 		},
 		{
@@ -41,6 +44,7 @@ func SeedMasterData(db *gorm.DB) {
 			BaseAmount:  35000,
 			IsFixed:     true,
 			IsActive:    true,
+			IsSemester:  true,
 			Description: "Biaya ujian semester — dikenakan di akhir semester (Rabi'ul Awal & Sya'ban)",
 		},
 	}
@@ -56,6 +60,7 @@ func SeedMasterData(db *gorm.DB) {
 			existing.BaseAmount = cat.BaseAmount
 			existing.Description = cat.Description
 			existing.IsActive = cat.IsActive
+			existing.IsSemester = cat.IsSemester
 			db.Save(&existing)
 			log.Printf("Updated existing category: %s (Rp %.0f)", cat.Name, cat.BaseAmount)
 		}

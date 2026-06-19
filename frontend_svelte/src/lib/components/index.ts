@@ -1,12 +1,8 @@
-export { default as BaseButton }    from './ui/BaseButton.svelte';
-export { default as BaseInput }     from './ui/BaseInput.svelte';
-export { default as BaseCard }      from './ui/BaseCard.svelte';
-export { default as BaseTable }     from './ui/BaseTable.svelte';
-
 export { default as Button }        from './ui/Button.svelte';
 export { default as Input }         from './ui/Input.svelte';
 export { default as Select }        from './ui/Select.svelte';
 export { default as Card }          from './ui/Card.svelte';
+export { default as Paginator }     from './ui/Paginator.svelte';
 export { default as Modal }         from './ui/Modal.svelte';
 export { default as Alert }         from './ui/Alert.svelte';
 export { default as Badge }         from './ui/Badge.svelte';

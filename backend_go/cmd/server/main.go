@@ -15,30 +15,22 @@ import (
 )
 
 func main() {
-	// 1. Load konfigurasi dari .env
 	cfg := config.NewConfig()
-
-	// 2. Inisialisasi JWT secret dari config
 	utils.InitJWTSecret(cfg.JWTSecret)
 
-	// 3. Koneksi database
 	db := config.NewDatabase(cfg)
 
-	// 4. Jalankan Seeder
 	log.Println("Running seeder...")
 	seeder.RunSeeders(db)
 	log.Println("Seeding completed successfully")
 
-	// 5. Setup Fiber v3 dengan custom error handler
 	app := fiber.New(fiber.Config{
 		AppName:      "Al-Anwar Payment API",
 		ErrorHandler: exception.ErrorHandler,
 	})
 
-	// 6. Setup router dengan dependency injection
 	suService := router.NewRouter(app, db, cfg)
 
-	// 7. Jalankan background workers
 	worker.StartTokenCleanupWorker(db)
 
 	logRepo := repository.NewLogRepository()
@@ -46,7 +38,6 @@ func main() {
 	worker.StartLogCleanupWorker(logService)
 	worker.StartAutoBillingWorker(db, suService)
 
-	// 8. Start server
 	log.Printf("🚀 Server starting on port %s", cfg.AppPort)
 	if err := app.Listen(":" + cfg.AppPort); err != nil {
 		log.Fatalf("Server error: %v", err)

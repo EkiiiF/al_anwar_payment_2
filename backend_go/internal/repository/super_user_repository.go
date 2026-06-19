@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// SuperUserRepository — kontrak akses data admin/super user.
 type SuperUserRepository interface {
 	// Dashboard
 	CountActiveStudents(db *gorm.DB) (int64, error)
@@ -15,6 +16,7 @@ type SuperUserRepository interface {
 		Month int
 		Total float64
 	}, error)
+	GetAvailableYears(db *gorm.DB) ([]int, error)
 
 	// Student CRUD
 	FindAllStudents(db *gorm.DB, search string) ([]domain.Student, error)
@@ -55,7 +57,7 @@ type SuperUserRepository interface {
 	CountInvoiceByHijri(db *gorm.DB, studentID string, categoryID string, hijriMonth int, hijriYear int) (int64, error)
 	CreateInvoice(db *gorm.DB, invoice *domain.Invoice) error
 	FindAllInvoices(db *gorm.DB, status string, month int, year int) ([]domain.Invoice, error)
-	FindStudentsWithInvoicesPaginated(db *gorm.DB, status string, month int, year int, page int, limit int) ([]domain.Student, int64, error)
+	FindStudentsWithInvoicesPaginated(db *gorm.DB, status string, month int, year int, search string, page int, limit int) ([]domain.Student, int64, error)
 	GetSemesterPaymentStats(db *gorm.DB, hijriYear int) ([]struct {
 		Semester     int
 		AcademicYear string

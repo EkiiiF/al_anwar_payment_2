@@ -40,7 +40,7 @@
   const roleThemeMap: Record<string, { badge: string; avatar: string; dot: string; activeBg: string }> = {
     super_user: { badge: 'bg-green-50 text-green-700',   avatar: 'bg-green-700',  dot: 'bg-green-600',  activeBg: 'bg-emerald-800 text-white' },
     guardian:   { badge: 'bg-blue-50 text-blue-700',     avatar: 'bg-blue-700',   dot: 'bg-blue-600',   activeBg: 'bg-blue-700 text-white' },
-    pengasuh:   { badge: 'bg-purple-50 text-purple-800', avatar: 'bg-purple-850', dot: 'bg-purple-600', activeBg: 'bg-purple-800 text-white' }
+    pengasuh:   { badge: 'bg-purple-50 text-purple-800', avatar: 'bg-purple-700', dot: 'bg-purple-600', activeBg: 'bg-purple-800 text-white' }
   };
   const rc = $derived(roleThemeMap[role] || roleThemeMap.super_user);
 
@@ -269,14 +269,14 @@
   {/if}
 
   <!-- ─── Main Content ──────────────────────────────────────── -->
-  <main class="flex-1 h-full overflow-y-auto pt-14 md:pt-0" id="main-content">
+  <main class="flex-1 h-full flex flex-col overflow-hidden pt-14 md:pt-0" id="main-content">
     <!-- Top bar dengan notification bell (khusus Desktop) -->
     {#if notifPath}
       <div class="hidden md:flex justify-end px-8 pt-6 pb-0 flex-shrink-0">
         <NotificationBell notifPath={notifPath} fetchEndpoint={notifEndpoint} />
       </div>
     {/if}
-    <div class="p-5 md:px-8 md:py-6 min-h-full flex flex-col">
+    <div class="p-5 md:px-8 md:py-6 flex-1 overflow-y-auto min-h-0">
       {@render children()}
     </div>
   </main>
@@ -289,7 +289,7 @@
   message="Apakah Anda yakin ingin keluar dari sistem? Anda perlu login kembali untuk mengakses dashboard."
   confirmText="Ya, Keluar"
   cancelText="Batal"
-  variant="warning"
+  variant="logout"
   loading={loggingOut}
   onConfirm={handleLogout}
 />

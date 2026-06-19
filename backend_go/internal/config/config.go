@@ -1,9 +1,11 @@
+// Package config — konfigurasi environment dan database.
 package config
 
 import (
 	"github.com/spf13/viper"
 )
 
+// Config — konfigurasi aplikasi dari environment variables.
 type Config struct {
 	AppName           string
 	AppPort           string
@@ -23,6 +25,7 @@ type Config struct {
 	ServerPort        string
 }
 
+// NewConfig — membaca konfigurasi dari file .env.
 func NewConfig() *Config {
 	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()

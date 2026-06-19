@@ -14,7 +14,7 @@ type Student struct {
 	BirthDate       string      `json:"birth_date" gorm:"column:birth_date"`
 	StudentNumber   string      `json:"student_number" gorm:"column:student_number;unique;not null;index"`
 	Gender          string      `json:"gender" gorm:"column:gender"`
-	IsActive        bool        `json:"is_active" gorm:"column:is_active;default:true;index"`
+	IsActive        bool        `json:"is_active" gorm:"column:is_active;index"`
 	MuhadhorohLevel int         `json:"muhadhoroh_level" gorm:"column:muhadhoroh_level;type:tinyint;default:1;index"`
 	CurrentSemester int         `json:"current_semester" gorm:"column:current_semester;type:tinyint;default:1"`
 	StatusID string            `json:"status_id" gorm:"type:char(36);not null;index"`
@@ -22,6 +22,7 @@ type Student struct {
 	Guardians []Guardian     `json:"guardians,omitempty" gorm:"foreignKey:StudentID;references:ID;constraint:OnDelete:CASCADE"`
 	Addresses []Address      `json:"addresses,omitempty" gorm:"foreignKey:StudentID;references:ID;constraint:OnDelete:CASCADE"`
 	Invoices  []Invoice      `json:"invoices,omitempty" gorm:"foreignKey:StudentID;references:ID;constraint:OnDelete:CASCADE"`
+	BillingCategories []Category `json:"billing_categories,omitempty" gorm:"many2many:student_billing_categories;"`
 	CreatedAt time.Time      `json:"created_at" gorm:"autoCreateTime;<-:create"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`

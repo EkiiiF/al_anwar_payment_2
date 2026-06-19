@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Modal, Input, Button, Alert, Select } from '$lib/components';
+  import { Modal, Input, Button, Alert, Select, ConfirmDialog } from '$lib/components';
   import type { Student, StudentStatusType, Category } from '$lib/types';
   import { GUARDIAN_RELATION_OPTIONS } from '$lib/types/student.types';
   import { superUserApi } from '$lib/api';
@@ -20,11 +20,14 @@
 
   let submitting = $state(false);
   let error = $state('');
+  let showCancelConfirm = $state(false);
 
   let nis = $state('');
   let fullName = $state('');
   let nik = $state('');
-  let birthDate = $state('');
+  let birthDay = $state('');
+  let birthMonth = $state('');
+  let birthYear = $state('');
   let statusId = $state('');
   let gender = $state('L');
 
@@ -49,7 +52,17 @@
         nis = student.student_number;
         fullName = [student.name.first_name, student.name.middle_name, student.name.last_name].filter(Boolean).join(' ');
         nik = student.nik || '';
-        birthDate = student.birth_date ? student.birth_date.split('T')[0] : '';
+        // Parse birth_date (YYYY-MM-DD) into components
+        if (student.birth_date) {
+          const parts = student.birth_date.split('T')[0].split('-');
+          if (parts.length === 3) {
+            birthYear = parts[0];
+            birthMonth = String(parseInt(parts[1]));
+            birthDay = String(parseInt(parts[2]));
+          }
+        } else {
+          birthDay = ''; birthMonth = ''; birthYear = '';
+        }
         statusId = student.status_id;
         gender = student.gender || 'L';
 
@@ -74,7 +87,7 @@
           guardianName = ''; guardianPhone = ''; guardianEmail = ''; guardianRelation = 'Orang Tua';
         }
       } else {
-        nis = ''; fullName = ''; nik = ''; birthDate = '';
+        nis = ''; fullName = ''; nik = ''; birthDay = ''; birthMonth = ''; birthYear = '';
         statusId = statuses.length > 0 ? statuses[0].id : '';
         gender = 'L';
         addressLine = ''; village = ''; district = ''; city = ''; province = ''; country = 'Indonesia'; postalCode = '';
@@ -83,11 +96,19 @@
     }
   });
 
+  function handleCancel() {
+    showCancelConfirm = true;
+  }
+
   async function handleSave(e: SubmitEvent) {
     e.preventDefault();
     submitting = true;
     error = '';
     
+      // Combine birth date components
+      const birthDate = (birthYear && birthMonth && birthDay)
+        ? `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`
+        : '';
     const payload = {
       nis,
       full_name: fullName,
@@ -120,7 +141,7 @@
   }
 </script>
 
-<Modal bind:open title={student ? 'Edit Santri Lengkap' : 'Tambah Santri Lengkap'} size="lg">
+<Modal bind:open title={student ? 'Edit Santri Lengkap' : 'Tambah Santri Lengkap'} size="lg" confirmCloseMessage="Apakah Anda yakin ingin membatalkan tindakan ini? Perubahan yang belum disimpan akan hilang.">
   {#snippet children()}
     {#if error}<Alert type="error" message={error} class="mb-4" />{/if}
     <form id="student-form" onsubmit={handleSave} class="space-y-6">
@@ -133,7 +154,41 @@
         </div>
         <div class="grid grid-cols-2 gap-4 mt-3">
           <Input id="full_name" label="Nama Lengkap" bind:value={fullName} required />
-          <Input id="birth_date" type="date" label="Tanggal Lahir" bind:value={birthDate} />
+          <div class="grid grid-cols-3 gap-3 mt-3">
+            <div class="space-y-1.5">
+              <label for="fm_birthDay" class="block text-sm font-medium text-gray-700">Tanggal</label>
+              <input 
+                id="fm_birthDay" 
+                type="number" 
+                bind:value={birthDay} 
+                min="1" 
+                max="31" 
+                class="w-full border-gray-300 rounded-lg shadow-sm focus:border-green-500 focus:ring-green-500 text-sm px-3 py-2" 
+                placeholder="1-31" 
+              />
+            </div>
+            <div class="space-y-1.5">
+              <label for="fm_birthMonth" class="block text-sm font-medium text-gray-700">Bulan</label>
+              <select id="fm_birthMonth" bind:value={birthMonth} class="w-full border-gray-300 rounded-lg shadow-sm focus:border-green-500 focus:ring-green-500 text-sm px-3 py-2">
+                <option value="">--</option>
+                {#each ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as name, i}
+                  <option value={String(i + 1)}>{name}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="space-y-1.5">
+              <label for="fm_birthYear" class="block text-sm font-medium text-gray-700">Tahun Lahir</label>
+              <input 
+                id="fm_birthYear" 
+                type="number" 
+                bind:value={birthYear} 
+                min="1900" 
+                max={new Date().getFullYear()} 
+                class="w-full border-gray-300 rounded-lg shadow-sm focus:border-green-500 focus:ring-green-500 text-sm px-3 py-2" 
+                placeholder="Tahun" 
+              />
+            </div>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-4 mt-3">
           <div class="space-y-1.5">
@@ -214,10 +269,23 @@
   {/snippet}
   {#snippet footer()}
     <div class="flex justify-end gap-2 w-full">
-      <Button onclick={() => open = false} variant="outline" size="md">{#snippet children()}Batal{/snippet}</Button>
+      <Button onclick={handleCancel} variant="outline" size="md">{#snippet children()}Batal{/snippet}</Button>
       <Button type="submit" form="student-form" variant="primary" size="md" loading={submitting}>
         {#snippet children()}{student ? 'Simpan Perubahan' : 'Tambah Santri'}{/snippet}
       </Button>
     </div>
   {/snippet}
 </Modal>
+
+<ConfirmDialog
+  bind:open={showCancelConfirm}
+  title="Konfirmasi Tindakan"
+  message="Apakah Anda yakin ingin membatalkan tindakan ini? Perubahan yang belum disimpan akan hilang."
+  confirmText="Ya, Batalkan"
+  cancelText="Kembali"
+  variant="warning"
+  onConfirm={() => {
+    showCancelConfirm = false;
+    open = false;
+  }}
+/>

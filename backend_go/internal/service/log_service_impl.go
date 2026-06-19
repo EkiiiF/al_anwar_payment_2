@@ -35,7 +35,6 @@ func (s *LogServiceImpl) Log(ctx context.Context, userID, action, entityName, en
 	}
 
 	if err := s.LogRepo.Create(s.DB, &log); err != nil {
-		// Log failure tidak boleh gagalkan request utama
 		_ = err
 	}
 }

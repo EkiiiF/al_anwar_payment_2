@@ -9,14 +9,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// ReportControllerImpl — implementasi ReportController.
 type ReportControllerImpl struct {
 	Service service.ReportService
 }
 
+// NewReportController — konstruktor ReportController.
 func NewReportController(s service.ReportService) ReportController {
 	return &ReportControllerImpl{Service: s}
 }
 
+// GetReports — ambil rekap laporan keuangan.
 func (ctrl *ReportControllerImpl) GetReports(ctx fiber.Ctx) error {
 	filters := map[string]interface{}{
 		"year":        ctx.Query("year"),
@@ -31,6 +34,7 @@ func (ctrl *ReportControllerImpl) GetReports(ctx fiber.Ctx) error {
 	return ctx.JSON(response.Success(data))
 }
 
+// ExportReports — export laporan keuangan ke CSV.
 func (ctrl *ReportControllerImpl) ExportReports(ctx fiber.Ctx) error {
 	filters := map[string]interface{}{
 		"year":        ctx.Query("year"),

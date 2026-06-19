@@ -21,7 +21,7 @@
   <div class="flex flex-wrap items-center gap-4">
     <div class="flex items-center gap-2 text-sm font-bold text-slate-700 select-none">
       <Filter size={16} class="text-emerald-800" />
-      <span>Filter Data:</span>
+      <span>Filter:</span>
     </div>
     
     <div class="w-full sm:w-44">

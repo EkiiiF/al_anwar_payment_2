@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// NewDatabase — inisialisasi koneksi MySQL dengan GORM.
 func NewDatabase(cfg *Config) *gorm.DB {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
@@ -48,6 +49,7 @@ func NewDatabase(cfg *Config) *gorm.DB {
 	return db
 }
 
+// AutoMigrate — jalankan auto-migration untuk semua domain model.
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&domain.Role{},

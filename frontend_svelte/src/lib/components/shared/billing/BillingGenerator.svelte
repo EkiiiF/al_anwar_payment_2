@@ -38,7 +38,7 @@
   </div>
 
   {#if genMessage}
-    <Alert type={genSuccess ? 'success' : 'error'} message={genMessage} class="mb-5 rounded-xl border-slate-150" />
+    <Alert type={genSuccess ? 'success' : 'error'} message={genMessage} class="mb-5 rounded-xl border-slate-200" />
   {/if}
 
   <div class="flex gap-1 bg-slate-100/80 rounded-xl p-1 mb-5 w-fit border border-slate-200/50">
@@ -46,7 +46,7 @@
       type="button"
       onclick={() => genMode = 'monthly'}
       class="px-4 py-2 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200
-        {genMode === 'monthly' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-650 hover:bg-slate-200/50 hover:text-slate-900'}"
+        {genMode === 'monthly' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'}"
     >
       Syahriyyah Bulanan
     </button>
@@ -54,7 +54,7 @@
       type="button"
       onclick={() => genMode = 'semester'}
       class="px-4 py-2 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200 flex items-center gap-1.5
-        {genMode === 'semester' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-650 hover:bg-slate-200/50 hover:text-slate-900'}"
+        {genMode === 'semester' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'}"
     >
       <Layers size={14} /> Tagihan Semester
     </button>
@@ -84,11 +84,12 @@
           id="y" 
           type="number" 
           bind:value={genYear} 
-          class="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-350 text-sm focus:ring-2 focus:ring-emerald-800/20 focus:border-emerald-800 outline-none transition-all" 
-          placeholder="Contoh: 1447" 
+          disabled
+          class="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500 cursor-not-allowed outline-none transition-all" 
+          placeholder="Mengikuti sistem..." 
         />
       </div>
-      <Button onclick={onGenerate} variant="primary" loading={generating} class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold h-[42px] px-6 rounded-lg shadow-sm">
+      <Button onclick={onGenerate} variant="primary" loading={generating} class="w-full sm:w-auto">
         {#snippet children()}Buat Tagihan{/snippet}
       </Button>
     </div>
@@ -106,11 +107,12 @@
           id="hy" 
           type="number" 
           bind:value={genHijriYear} 
-          class="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-350 text-sm focus:ring-2 focus:ring-emerald-800/20 focus:border-emerald-800 outline-none transition-all" 
-          placeholder="Contoh: 1447" 
+          disabled
+          class="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500 cursor-not-allowed outline-none transition-all" 
+          placeholder="Mengikuti sistem..." 
         />
       </div>
-      <Button onclick={onGenerate} variant="primary" loading={generating} class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold h-[42px] px-6 rounded-lg shadow-sm">
+      <Button onclick={onGenerate} variant="primary" loading={generating} class="w-full sm:w-auto">
         {#snippet children()}Buat Tagihan{/snippet}
       </Button>
     </div>

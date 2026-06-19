@@ -4,11 +4,14 @@
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
   import Button from './Button.svelte';
   import EmptyState from './EmptyState.svelte';
+  import Paginator from './Paginator.svelte';
 
   let {
     pagination = null,
     onPrevPage,
     onNextPage,
+    onPageChange,
+    onLimitChange,
     isEmpty = false,
     emptyTitle = 'Tidak ada data',
     emptyDescription = '',
@@ -19,6 +22,8 @@
     pagination?: { page: number; limit: number; total: number; pages: number } | null;
     onPrevPage?: () => void;
     onNextPage?: () => void;
+    onPageChange?: (page: number) => void;
+    onLimitChange?: (limit: number) => void;
     isEmpty?: boolean;
     emptyTitle?: string;
     emptyDescription?: string;
@@ -80,23 +85,35 @@
   </div>
 
   {#if pagination}
-    <div class="datatable__footer">
-      <p class="datatable__footer-info">
-        Menampilkan <span class="font-bold text-gray-900">{showStart} - {showEnd}</span>
-        dari <span class="font-bold text-gray-900">{total}</span> {paginationLabel}
-      </p>
-      <div class="datatable__footer-nav">
-        <Button variant="secondary" onclick={onPrevPage} disabled={currentPage <= 1} size="sm">
-          {#snippet children()}<ChevronLeft size={16} /> Sebelumnya{/snippet}
-        </Button>
-        <div class="datatable__footer-page">
-          Halaman {currentPage} / {totalPages}
+    {#if onPageChange}
+      <Paginator
+        page={currentPage}
+        limit={limit}
+        total={total}
+        pages={totalPages}
+        label={paginationLabel}
+        onPageChange={onPageChange}
+        onLimitChange={onLimitChange}
+      />
+    {:else}
+      <div class="datatable__footer">
+        <p class="datatable__footer-info">
+          Menampilkan <span class="font-bold text-gray-900">{showStart} - {showEnd}</span>
+          dari <span class="font-bold text-gray-900">{total}</span> {paginationLabel}
+        </p>
+        <div class="datatable__footer-nav">
+          <Button variant="secondary" onclick={onPrevPage} disabled={currentPage <= 1} size="sm">
+            {#snippet children()}<ChevronLeft size={16} /> Sebelumnya{/snippet}
+          </Button>
+          <div class="datatable__footer-page">
+            Halaman {currentPage} / {totalPages}
+          </div>
+          <Button variant="secondary" onclick={onNextPage} disabled={currentPage >= totalPages} size="sm">
+            {#snippet children()}Selanjutnya <ChevronRight size={16} />{/snippet}
+          </Button>
         </div>
-        <Button variant="secondary" onclick={onNextPage} disabled={currentPage >= totalPages} size="sm">
-          {#snippet children()}Selanjutnya <ChevronRight size={16} />{/snippet}
-        </Button>
       </div>
-    </div>
+    {/if}
   {/if}
 </div>
 

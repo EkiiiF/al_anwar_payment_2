@@ -13,7 +13,13 @@ import type {
 } from '$lib/types';
 
 export const superUserApi = {
-  getDashboard: () => apiClient.get<SuperUserDashboardStats>('/api/v1/admin/dashboard'),
+  getDashboard: (year?: number, range?: string) => {
+    const params: Record<string, string> = {};
+    if (year) params.year = String(year);
+    if (range) params.range = range;
+    const queryString = Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
+    return apiClient.get<SuperUserDashboardStats>(`/api/v1/admin/dashboard${queryString}`);
+  },
   
   getStudents: (search?: string) =>
     apiClient.get<Student[]>(

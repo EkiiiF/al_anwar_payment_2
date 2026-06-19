@@ -25,8 +25,8 @@
 <div class="space-y-4">
   <div class="bg-gradient-to-r from-emerald-800 to-teal-700 rounded-2xl p-4.5 text-white shadow-sm flex items-center justify-between border border-emerald-900/10">
     <div class="min-w-0">
-      <h2 class="font-extrabold text-sm tracking-wide uppercase leading-tight">Syahriyyah Pondok (Bulanan)</h2>
-      <p class="text-[10px] text-emerald-100 mt-1 leading-snug">Iuran operasional bulanan wajib pondok pesantren.</p>
+      <h2 class="font-bold text-base tracking-wide uppercase leading-tight">Syahriyyah Pondok (Bulanan)</h2>
+      <p class="text-xs text-emerald-100 mt-1 leading-snug">Iuran operasional bulanan wajib pondok pesantren.</p>
     </div>
     {#if pondokInvoices.length > 0}
       <button
@@ -40,7 +40,7 @@
   </div>
 
   {#if pondokInvoices.length === 0}
-    <Card class="border-slate-150 bg-slate-50/20 !p-6">
+    <Card class="border-slate-200 bg-slate-50/20 !p-6">
       <EmptyState
         title="Tagihan Bulanan Lunas!"
         description="Alhamdulillah, tidak ada tagihan Syahriyyah Pondok yang aktif saat ini."
@@ -55,7 +55,7 @@
           onclick={() => toggleSelect(invoice.id)}
           class="group relative p-4.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none
             {isSelected
-              ? 'bg-emerald-50/40 border-emerald-600 shadow-md shadow-emerald-50/50'
+              ? 'bg-emerald-50/40 border-emerald-600 shadow-sm shadow-emerald-50/30'
               : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'}"
           role="checkbox"
           aria-checked={isSelected}
@@ -64,7 +64,7 @@
           <div class="flex items-center justify-between gap-4">
             <div class="flex items-center gap-3.5 min-w-0">
               <div class="w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all duration-200
-                {isSelected ? 'border-emerald-800 bg-emerald-800' : 'border-slate-350 group-hover:border-emerald-700'}"
+                {isSelected ? 'border-emerald-800 bg-emerald-800' : 'border-slate-300 group-hover:border-emerald-700'}"
               >
                 {#if isSelected}
                   <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.5" aria-hidden="true">
@@ -74,19 +74,19 @@
               </div>
 
               <div class="min-w-0">
-                <p class="text-[9px] text-slate-400 font-mono leading-none mb-1 mt-0.5">{invoice.invoice_number}</p>
-                <p class="font-extrabold text-slate-900 text-sm tracking-tight leading-snug">
+                <p class="text-xs text-slate-400 font-mono leading-none mb-1 mt-0.5">{invoice.invoice_number}</p>
+                <p class="font-bold text-slate-900 text-base tracking-tight leading-snug">
                   {getHijriMonthName(invoice.hijri_month)} {invoice.hijri_year} H
                 </p>
-                <p class="text-[10px] text-slate-500 font-semibold mt-1">
+                <p class="text-xs text-slate-500 font-medium mt-1">
                   Jatuh tempo: {new Date(invoice.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
             </div>
 
             <div class="text-right flex-shrink-0">
-              <p class="text-base font-black text-emerald-850">{formatRupiah(invoice.amount_due)}</p>
-              <Badge label="Bulanan" variant="info" class="mt-1.5 text-[9px] py-0.5" />
+              <p class="text-lg font-bold text-emerald-800">{formatRupiah(invoice.amount_due)}</p>
+              <Badge label="Bulanan" variant="info" class="mt-1.5 text-xs py-0.5" />
             </div>
           </div>
         </div>

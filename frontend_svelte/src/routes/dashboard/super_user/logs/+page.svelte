@@ -27,18 +27,15 @@
     }
   }
 
-  function prevPage() {
-    if (page > 1) {
-      page--;
-      fetchData();
-    }
+  function handlePageChange(newPage: number) {
+    page = newPage;
+    fetchData();
   }
 
-  function nextPage() {
-    if (pagination && page < pagination.pages) {
-      page++;
-      fetchData();
-    }
+  function handleLimitChange(newLimit: number) {
+    limit = newLimit;
+    page = 1;
+    fetchData();
   }
 
   onMount(fetchData);
@@ -61,8 +58,8 @@
   {:else}
     <DataTable
       pagination={pagination}
-      onPrevPage={prevPage}
-      onNextPage={nextPage}
+      onPageChange={handlePageChange}
+      onLimitChange={handleLimitChange}
       isEmpty={logs.length === 0}
       emptyTitle="Belum ada log aktivitas"
       emptyDescription="Log akan muncul saat terjadi aktivitas di sistem."

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -49,7 +50,7 @@ func guardianRelation(rel string) string {
 	return rel
 }
 
-func (s *SuperUserServiceImpl) GetDashboardStats() (response.SuperUserDashboardStats, error) {
+func (s *SuperUserServiceImpl) GetDashboardStats(year int, dateRange string) (response.SuperUserDashboardStats, error) {
 	totalStudents, err := s.Repository.CountActiveStudents(s.DB)
 	if err != nil {
 		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung santri: %w", err)
@@ -65,47 +66,130 @@ func (s *SuperUserServiceImpl) GetDashboardStats() (response.SuperUserDashboardS
 		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung tagihan lunas: %w", err)
 	}
 
-	// ─── Hijri & Semester Info ──────────────────────────────
 	hijriNow := utils.GetCurrentHijriDate()
-	semesterInfo := utils.GetSemesterInfo(hijriNow.Month, hijriNow.Year)
+	targetYear := year
+	if targetYear == 0 {
+		targetYear = hijriNow.Year
+	}
+	semesterInfo := utils.GetSemesterInfo(hijriNow.Month, targetYear)
 
-	totalIncome, err := s.Repository.SumIncomeThisMonth(s.DB, hijriNow.Month, hijriNow.Year)
+	totalIncome, err := s.Repository.SumIncomeThisMonth(s.DB, hijriNow.Month, targetYear)
 	if err != nil {
 		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung pendapatan: %w", err)
 	}
 
-	monthlyIncomeData, err := s.Repository.GetMonthlyIncomeForYear(s.DB, hijriNow.Year)
-	if err != nil {
-		return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung pendapatan bulanan: %w", err)
+	// Calculate start month and year based on range
+	var startMonth, startYear int
+	var useRange bool = false
+
+	if dateRange != "" {
+		useRange = true
+		switch dateRange {
+		case "6mo":
+			startMonth = hijriNow.Month - 5
+			startYear = hijriNow.Year
+			if startMonth <= 0 {
+				startMonth += 12
+				startYear -= 1
+			}
+		case "1yr":
+			startMonth = hijriNow.Month - 11
+			startYear = hijriNow.Year
+			if startMonth <= 0 {
+				startMonth += 12
+				startYear -= 1
+			}
+		case "3yr":
+			startMonth = hijriNow.Month - 35
+			startYear = hijriNow.Year
+			for startMonth <= 0 {
+				startMonth += 12
+				startYear -= 1
+			}
+		case "all":
+			var minYear int
+			err := s.DB.Model(&domain.Invoice{}).Select("COALESCE(MIN(hijri_year), 1443)").Scan(&minYear).Error
+			if err != nil || minYear == 0 {
+				minYear = 1443
+			}
+			startMonth = 1
+			startYear = minYear
+		default:
+			useRange = false
+		}
 	}
 
 	var monthlyStats []response.MonthlyPaymentStat
-	// Initialize all 12 months
-	monthMap := make(map[int]float64)
-	for _, data := range monthlyIncomeData {
-		monthMap[data.Month] = data.Total
-	}
-	for i := 1; i <= 12; i++ {
-		monthlyStats = append(monthlyStats, response.MonthlyPaymentStat{
-			Month: i,
-			Year:  hijriNow.Year,
-			Total: monthMap[i],
-		})
+	if useRange {
+		startDate := utils.HijriToGregorian(startYear, startMonth, 1)
+
+		var payments []domain.Payment
+		err := s.DB.Model(&domain.Payment{}).
+			Where("transaction_status = ? AND payment_date >= ?", "settlement", startDate).
+			Find(&payments).Error
+		if err != nil {
+			return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung pendapatan bulanan: %w", err)
+		}
+
+		monthlyMap := make(map[int]float64)
+		for _, p := range payments {
+			if p.PaymentDate == nil {
+				continue
+			}
+			hDate := utils.GregorianToHijri(*p.PaymentDate)
+			monthlyMap[hDate.Year*100+hDate.Month] += p.AmountPaid
+		}
+
+		curM := startMonth
+		curY := startYear
+		for {
+			key := curY*100 + curM
+			monthlyStats = append(monthlyStats, response.MonthlyPaymentStat{
+				Month: curM,
+				Year:  curY,
+				Total: monthlyMap[key],
+			})
+
+			if curY == hijriNow.Year && curM == hijriNow.Month {
+				break
+			}
+			curM++
+			if curM > 12 {
+				curM = 1
+				curY++
+			}
+		}
+	} else {
+		monthlyIncomeData, err := s.Repository.GetMonthlyIncomeForYear(s.DB, targetYear)
+		if err != nil {
+			return response.SuperUserDashboardStats{}, fmt.Errorf("gagal hitung pendapatan bulanan: %w", err)
+		}
+
+		monthMap := make(map[int]float64)
+		for _, data := range monthlyIncomeData {
+			monthMap[data.Month] = data.Total
+		}
+		for i := 1; i <= 12; i++ {
+			monthlyStats = append(monthlyStats, response.MonthlyPaymentStat{
+				Month: i,
+				Year:  targetYear,
+				Total: monthMap[i],
+			})
+		}
 	}
 
 	currentHijri := response.HijriMonthInfo{
 		HijriMonth:        hijriNow.Month,
 		HijriMonthName:    utils.GetHijriMonthName(hijriNow.Month),
-		HijriYear:         hijriNow.Year,
+		HijriYear:         targetYear,
 		Semester:          semesterInfo.Number,
 		SemesterName:      semesterInfo.Name,
-		AcademicYearLabel: utils.GetAcademicYearLabel(hijriNow.Month, hijriNow.Year),
+		AcademicYearLabel: utils.GetAcademicYearLabel(hijriNow.Month, targetYear),
 		IsExamMonth:       semesterInfo.IsExamMonth,
 		IsRegistration:    semesterInfo.IsRegistration,
 	}
 
-	// Ambil statistik semester dari database
-	semesterData, err := s.Repository.GetSemesterPaymentStats(s.DB, hijriNow.Year)
+	semesterData, err := s.Repository.GetSemesterPaymentStats(s.DB, targetYear)
 	var semesterStats []response.SemesterPaymentStat
 	if err == nil {
 		for _, sd := range semesterData {
@@ -127,6 +211,11 @@ func (s *SuperUserServiceImpl) GetDashboardStats() (response.SuperUserDashboardS
 		semesterStats = []response.SemesterPaymentStat{}
 	}
 
+	availableYears, err := s.Repository.GetAvailableYears(s.DB)
+	if err != nil {
+		availableYears = []int{targetYear}
+	}
+
 	return response.SuperUserDashboardStats{
 		TotalStudents:   totalStudents,
 		UnpaidInvoices:  unpaidInvoices,
@@ -135,6 +224,7 @@ func (s *SuperUserServiceImpl) GetDashboardStats() (response.SuperUserDashboardS
 		MonthlyPayments: monthlyStats,
 		SemesterStats:   semesterStats,
 		CurrentHijri:    currentHijri,
+		AvailableYears:  availableYears,
 	}, nil
 }
 
@@ -154,14 +244,10 @@ func (s *SuperUserServiceImpl) GetInvoicesPaginated(status string, month int, ye
 	return s.Repository.FindAllInvoicesPaginated(s.DB, status, month, year, page, limit)
 }
 
-func (s *SuperUserServiceImpl) GetStudentsWithInvoicesPaginated(status string, month int, year int, page int, limit int) ([]domain.Student, int64, error) {
-	return s.Repository.FindStudentsWithInvoicesPaginated(s.DB, status, month, year, page, limit)
+func (s *SuperUserServiceImpl) GetStudentsWithInvoicesPaginated(status string, month int, year int, search string, page int, limit int) ([]domain.Student, int64, error) {
+	return s.Repository.FindStudentsWithInvoicesPaginated(s.DB, status, month, year, search, page, limit)
 }
 
-// parseFullName memecah full_name menjadi FirstName, MiddleName, dan LastName.
-// - 1 kata: FirstName saja
-// - 2 kata: FirstName + LastName
-// - 3+ kata: FirstName + MiddleName(s) + LastName
 func parseFullName(fullName string) (first, middle, last string) {
 	parts := strings.Fields(fullName)
 	switch len(parts) {
@@ -182,7 +268,6 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 	}
 
 	return s.DB.Transaction(func(tx *gorm.DB) error {
-		// Parse nama dari full_name → first, middle, last
 		first, middle, last := parseFullName(req.FullName)
 		studentName := domain.StudentName{
 			FirstName:  first,
@@ -190,33 +275,41 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 			LastName:   last,
 		}
 
-		// Default muhadhoroh level 1 semester 1 jika tidak dikirim
 		muhadLevel := req.MuhadhorohLevel
-		if muhadLevel == 0 {
-			muhadLevel = 1
-		}
 		currSem := req.CurrentSemester
 		if currSem == 0 {
-			currSem = 1
+			hijriNow := utils.GetCurrentHijriDate()
+			semInfo := utils.GetSemesterInfo(hijriNow.Month, hijriNow.Year)
+			currSem = semInfo.Number
+		}
+		if muhadLevel == 0 {
+			currSem = 0
 		}
 
-		// Pastikan gender valid, default "L" jika kosong
 		gender := req.Gender
 		if gender == "" {
 			gender = "L"
 		}
 
+		var billingCats []domain.Category
+		if len(req.CategoryIDs) > 0 {
+			if err := tx.Where("id IN ?", req.CategoryIDs).Find(&billingCats).Error; err != nil {
+				return fmt.Errorf("gagal memuat kategori tagihan: %w", err)
+			}
+		}
+
 		student := domain.Student{
-			ID:              utils.GenerateID(),
-			Name:            studentName,
-			Nik:             req.Nik,
-			BirthDate:       req.BirthDate,
-			StudentNumber:   req.NIS,
-			Gender:          gender,
-			MuhadhorohLevel: muhadLevel,
-			CurrentSemester: currSem,
-			StatusID:        req.StatusTypeID,
-			IsActive:        true,
+			ID:                utils.GenerateID(),
+			Name:              studentName,
+			Nik:               req.Nik,
+			BirthDate:         req.BirthDate,
+			StudentNumber:     req.NIS,
+			Gender:            gender,
+			MuhadhorohLevel:   muhadLevel,
+			CurrentSemester:   currSem,
+			StatusID:          req.StatusTypeID,
+			IsActive:          true,
+			BillingCategories: billingCats,
 			Addresses: []domain.Address{
 				{
 					ID:          utils.GenerateID(),
@@ -236,17 +329,14 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 			return fmt.Errorf("gagal membuat data santri: %w", err)
 		}
 
-		// ─── Opsi 1: Buat akun guardian baru ─────────────────
 		if req.CreateNewGuardian {
 			role, err := s.Repository.FindRoleByName(tx, "guardian")
 			if err != nil {
 				return fmt.Errorf("role guardian tidak ditemukan: %w", err)
 			}
 
-			// Username otomatis sama dengan NIS
 			username := req.NIS
 
-			// Password default "password123" jika kosong
 			rawPassword := req.GuardianPassword
 			if rawPassword == "" {
 				rawPassword = "password123"
@@ -289,7 +379,6 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 			}
 
 		} else if req.GuardianID != "" {
-			// ─── Opsi 2: Gunakan wali santri yang sudah ada ──
 			existingGuardian, err := s.Repository.FindGuardianByID(tx, req.GuardianID)
 			if err != nil {
 				return fmt.Errorf("guardian dengan ID %s tidak ditemukan: %w", req.GuardianID, err)
@@ -321,7 +410,7 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 			newGuardian := domain.Guardian{
 				ID:        utils.GenerateID(),
 				StudentID: student.ID,
-				UserID:    existingGuardian.UserID, // <-- Kunci: User yang SAMA
+				UserID:    existingGuardian.UserID,
 				Name:      guardianName,
 				Phone:     phone,
 				Email:     email,
@@ -331,9 +420,6 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 				return fmt.Errorf("gagal menghubungkan guardian ke santri baru: %w", err)
 			}
 
-			// ─── Auto-copy alamat dari saudara jika alamat baru kosong ──
-			// Jika Bendahara tidak mengisi alamat untuk anak ke-2, salin dari
-			// anak pertama (saudara) yang sudah memiliki alamat.
 			if req.AddressLine == "" && len(existingGuardian.Student.Addresses) > 0 {
 				for _, srcAddr := range existingGuardian.Student.Addresses {
 					if srcAddr.IsPrimary {
@@ -349,7 +435,6 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 							PostalCode:  srcAddr.PostalCode,
 							IsPrimary:   true,
 						}
-						// Hapus alamat kosong yang dibuat sebelumnya
 						tx.Where("student_id = ? AND address_line = ''", student.ID).Delete(&domain.Address{})
 						if err := tx.Create(&copiedAddr).Error; err != nil {
 							return fmt.Errorf("gagal menyalin alamat dari saudara: %w", err)
@@ -376,19 +461,21 @@ func (s *SuperUserServiceImpl) UpdateStudent(ctx context.Context, id string, req
 			return fmt.Errorf("santri tidak ditemukan: %w", err)
 		}
 
-		// ── Parse nama → first, middle, last ─────────────
 		first, middle, last := parseFullName(req.FullName)
 
-		// Pastikan gender valid
 		gender := req.Gender
 		if gender == "" {
-			gender = student.Gender // keep existing if empty
+			gender = student.Gender
 		}
 
-		// ── Update field student secara EKSPLISIT (tanpa associations) ──
-		// PENTING: Jangan gunakan db.Save(student) dengan nested associations!
-		// GORM Save() dengan associations menyebabkan data address berpindah/hilang
-		// karena GORM melakukan upsert berdasarkan primary key association.
+		currSem := req.CurrentSemester
+		if currSem == 0 {
+			currSem = student.CurrentSemester
+		}
+		if req.MuhadhorohLevel == 0 {
+			currSem = 0
+		}
+
 		studentUpdate := map[string]interface{}{
 			"first_name":       first,
 			"middle_name":      middle,
@@ -399,19 +486,26 @@ func (s *SuperUserServiceImpl) UpdateStudent(ctx context.Context, id string, req
 			"birth_date":       req.BirthDate,
 			"gender":           gender,
 			"muhadhoroh_level": req.MuhadhorohLevel,
-			"current_semester": req.CurrentSemester,
+			"current_semester": currSem,
 		}
 		if err := tx.Model(&domain.Student{}).Where("id = ?", id).Updates(studentUpdate).Error; err != nil {
 			return fmt.Errorf("gagal update data santri: %w", err)
 		}
 
-		// ── Update Address secara TERPISAH ─────────────────
-		// Cari alamat primary yang sudah ada untuk student ini.
+		var billingCats []domain.Category
+		if len(req.CategoryIDs) > 0 {
+			if err := tx.Where("id IN ?", req.CategoryIDs).Find(&billingCats).Error; err != nil {
+				return fmt.Errorf("gagal memuat kategori tagihan: %w", err)
+			}
+		}
+		if err := tx.Model(&student).Association("BillingCategories").Replace(&billingCats); err != nil {
+			return fmt.Errorf("gagal memperbarui kategori tagihan santri: %w", err)
+		}
+
 		var existingAddr domain.Address
 		addrFound := tx.Where("student_id = ? AND is_primary = ?", id, true).First(&existingAddr).Error == nil
 
 		if addrFound {
-			// Update alamat yang sudah ada berdasarkan ID-nya sendiri
 			addrUpdate := map[string]interface{}{
 				"address_line": req.AddressLine,
 				"village":      req.Village,
@@ -425,7 +519,6 @@ func (s *SuperUserServiceImpl) UpdateStudent(ctx context.Context, id string, req
 				return fmt.Errorf("gagal update alamat: %w", err)
 			}
 		} else {
-			// Buat alamat baru jika belum ada
 			newAddr := domain.Address{
 				ID:          utils.GenerateID(),
 				StudentID:   id,
@@ -443,7 +536,6 @@ func (s *SuperUserServiceImpl) UpdateStudent(ctx context.Context, id string, req
 			}
 		}
 
-		// Update guardian data jika ada
 		if len(student.Guardians) > 0 {
 			guardian := &student.Guardians[0]
 
@@ -468,12 +560,8 @@ func (s *SuperUserServiceImpl) UpdateStudent(ctx context.Context, id string, req
 				return fmt.Errorf("gagal update guardian: %w", err)
 			}
 
-			// Update user account jika ada perubahan
-			// Selalu sinkronkan username dengan NIS terbaru
 			user := guardian.User
 			user.Username = req.NIS
-
-			// Jika password diisi, update password. Jika tidak, biarkan yang lama.
 			if req.GuardianPassword != "" {
 				hashed, err := utils.HashPassword(req.GuardianPassword)
 				if err != nil {
@@ -520,8 +608,6 @@ func (s *SuperUserServiceImpl) ToggleStudentStatus(ctx context.Context, id strin
 	return statusStr, nil
 }
 
-// ─── Status Type CRUD ──────────────────────────────────────
-
 func (s *SuperUserServiceImpl) GetStatusTypes() ([]domain.StudentStatusType, error) {
 	return s.Repository.FindAllStatusTypes(s.DB)
 }
@@ -534,7 +620,6 @@ func (s *SuperUserServiceImpl) CreateStatusType(ctx context.Context, req request
 	isActiveBilling := *req.IsActiveBilling
 	discount := req.DiscountPercentage
 
-	// Logika Abdi Dalem: otomatis tidak dikenakan biaya
 	if strings.EqualFold(strings.TrimSpace(req.Name), "abdi dalem") {
 		isActiveBilling = false
 		discount = 100
@@ -593,8 +678,6 @@ func (s *SuperUserServiceImpl) DeleteStatusType(ctx context.Context, id string, 
 	return nil
 }
 
-// ─── Category CRUD ─────────────────────────────────────────
-
 func (s *SuperUserServiceImpl) GetCategories() ([]domain.Category, error) {
 	return s.Repository.FindAllCategories(s.DB)
 }
@@ -610,12 +693,39 @@ func (s *SuperUserServiceImpl) CreateCategory(ctx context.Context, req request.C
 		BaseAmount:  req.BaseAmount,
 		IsFixed:     req.IsFixed,
 		IsActive:    req.IsActive,
+		IsSemester:  req.IsSemester,
 		Description: req.Description,
 	}
 
-	if err := s.Repository.CreateCategory(s.DB, &category); err != nil {
-		return domain.Category{}, fmt.Errorf("gagal membuat kategori: %w", err)
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := s.Repository.CreateCategory(tx, &category); err != nil {
+			return fmt.Errorf("gagal membuat kategori: %w", err)
+		}
+
+		if req.ApplyToAll {
+			var students []domain.Student
+			if err := tx.Where("is_active = ?", true).Find(&students).Error; err != nil {
+				return fmt.Errorf("gagal mengambil data santri: %w", err)
+			}
+			for _, student := range students {
+				if err := tx.Exec("INSERT IGNORE INTO student_billing_categories (student_id, category_id) VALUES (?, ?)", student.ID, category.ID).Error; err != nil {
+					return fmt.Errorf("gagal mengaitkan kategori ke santri: %w", err)
+				}
+			}
+		} else if len(req.StudentIDs) > 0 {
+			for _, studentID := range req.StudentIDs {
+				if err := tx.Exec("INSERT IGNORE INTO student_billing_categories (student_id, category_id) VALUES (?, ?)", studentID, category.ID).Error; err != nil {
+					return fmt.Errorf("gagal mengaitkan kategori ke santri pilihan: %w", err)
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return domain.Category{}, err
 	}
+
 	s.AuditLog.Log(ctx, operatorID, "CREATE_CATEGORY", "Category", category.ID, req, ip, ua)
 	return category, nil
 }
@@ -634,6 +744,7 @@ func (s *SuperUserServiceImpl) UpdateCategory(ctx context.Context, id string, re
 	category.BaseAmount = req.BaseAmount
 	category.IsFixed = req.IsFixed
 	category.IsActive = req.IsActive
+	category.IsSemester = req.IsSemester
 	category.Description = req.Description
 
 	if err := s.Repository.SaveCategory(s.DB, &category); err != nil {
@@ -651,14 +762,11 @@ func (s *SuperUserServiceImpl) DeleteCategory(ctx context.Context, id string, op
 	return nil
 }
 
-// ─── Invoice Generation (Semester-based Hijri Calendar) ────
-
 func (s *SuperUserServiceImpl) GenerateInvoices(ctx context.Context, req request.GenerateInvoiceRequest, operatorID, ip, ua string) (int, error) {
 	if err := s.Validate.Struct(req); err != nil {
 		return 0, err
 	}
 
-	// ─── Auto-detect Hijri month/year jika tidak dikirim ────
 	hijriMonth := req.HijriMonth
 	hijriYear := req.HijriYear
 	if hijriMonth == 0 || hijriYear == 0 {
@@ -668,7 +776,6 @@ func (s *SuperUserServiceImpl) GenerateInvoices(ctx context.Context, req request
 		hijriYear = hijri.Year
 	}
 
-	// ─── Cek apakah bulan ini billable (bukan Ramadhan) ─────
 	if !utils.IsBillableMonth(hijriMonth) {
 		return 0, fmt.Errorf("bulan %s (Ramadhan) adalah libur, tidak ada tagihan", utils.GetHijriMonthName(hijriMonth))
 	}
@@ -676,65 +783,53 @@ func (s *SuperUserServiceImpl) GenerateInvoices(ctx context.Context, req request
 	semesterInfo := utils.GetSemesterInfo(hijriMonth, hijriYear)
 	academicLabel := utils.GetAcademicYearLabel(hijriMonth, hijriYear)
 
-	// ─── Ambil data santri yang eligible ────────────────────
 	students, err := s.Repository.FindStudentsForBilling(s.DB)
 	if err != nil {
 		return 0, fmt.Errorf("gagal mengambil data santri: %w", err)
 	}
 
-	// ─── Tentukan kategori tagihan yang berlaku bulan ini ───
-	// 1. Syahriyyah: Selalu ada di setiap bulan aktif
-	// 2. Daftar Ulang: Hanya di bulan Syawal (awal tahun ajaran)
-	// 3. Ujian Semester: Hanya di Rabi'ul Awal (sem 1) dan Sya'ban (sem 2)
 	type billingComponent struct {
 		Category domain.Category
 		Label    string
 	}
 	var components []billingComponent
 
-	// Syahriyyah Pondok & Syahriyyah Muhadhoroh — selalu dikenakan
-	pondokCat, err := s.Repository.FindCategoryByName(s.DB, "Syahriyyah Pondok")
-	if err != nil {
-		return 0, fmt.Errorf("kategori Syahriyyah Pondok tidak ditemukan di master data: %w", err)
-	}
-	components = append(components, billingComponent{Category: pondokCat, Label: "Syahriyyah Pondok"})
-
-	muhadhorohCat, err := s.Repository.FindCategoryByName(s.DB, "Syahriyyah Muhadhoroh")
-	if err != nil {
-		return 0, fmt.Errorf("kategori Syahriyyah Muhadhoroh tidak ditemukan di master data: %w", err)
-	}
-	components = append(components, billingComponent{Category: muhadhorohCat, Label: "Syahriyyah Muhadhoroh"})
-
-	// Daftar Ulang — hanya bulan Syawal
-	if semesterInfo.IsRegistration {
-		regCat, err := s.Repository.FindCategoryByName(s.DB, "Daftar Ulang")
-		if err == nil {
-			components = append(components, billingComponent{Category: regCat, Label: "Daftar Ulang"})
-		}
+	var activeCats []domain.Category
+	if err := s.DB.Where("is_active = ? AND is_semester = ?", true, false).Find(&activeCats).Error; err != nil {
+		return 0, fmt.Errorf("gagal mengambil kategori aktif dari database: %w", err)
 	}
 
-	// Ujian Semester — hanya bulan ujian (Rabi'ul Awal / Sya'ban)
-	if semesterInfo.IsExamMonth {
-		examCat, err := s.Repository.FindCategoryByName(s.DB, "Ujian Semester")
-		if err == nil {
-			components = append(components, billingComponent{Category: examCat, Label: "Ujian Semester"})
-		}
+	for _, cat := range activeCats {
+		components = append(components, billingComponent{Category: cat, Label: cat.Name})
 	}
 
-	// ─── Generate tagihan per santri ────────────────────────
 	generatedCount := 0
 	hijriMonthName := utils.GetHijriMonthName(hijriMonth)
 
 	for _, student := range students {
-		if !student.Status.IsActiveBilling || student.MuhadhorohLevel == 0 {
-			continue // Skip non-billing dan santri lulus
+		if !student.Status.IsActiveBilling {
+			continue
 		}
 		discount := student.Status.DiscountPercentage
 
 		for _, comp := range components {
-			amountDue := comp.Category.BaseAmount * (1 - (discount / 100.0))
+			if len(student.BillingCategories) > 0 {
+				hasCategory := false
+				for _, bc := range student.BillingCategories {
+					if bc.ID == comp.Category.ID {
+						hasCategory = true
+						break
+					}
+				}
+				if !hasCategory {
+					continue
+				}
+			}
 
-			// Cek duplikasi berdasarkan Hijri month/year (idempoten)
+			if comp.Label == "Syahriyyah Muhadhoroh" && student.MuhadhorohLevel == 0 {
+				continue
+			}
+			amountDue := comp.Category.BaseAmount * (1 - (discount / 100.0))
 			count, _ := s.Repository.CountInvoiceByHijri(s.DB, student.ID, comp.Category.ID, hijriMonth, hijriYear)
 			if count > 0 {
 				continue
@@ -767,7 +862,6 @@ func (s *SuperUserServiceImpl) GenerateInvoices(ctx context.Context, req request
 			}
 			if err := s.Repository.CreateInvoice(s.DB, &invoice); err == nil {
 				generatedCount++
-				// Kirim notifikasi ke wali santri
 				for _, g := range student.Guardians {
 					var detailMsg string
 					if comp.Category.Name == "Syahriyyah Pondok" {
@@ -794,12 +888,14 @@ func (s *SuperUserServiceImpl) GenerateInvoices(ctx context.Context, req request
 	return generatedCount, nil
 }
 
-// ─── Semester Full-Package Invoice Generation ──────────────
-// Generate semua tagihan untuk 1 semester penuh di depan.
-// Wali santri bisa melihat total dan bayar paket atau cicil.
 func (s *SuperUserServiceImpl) GenerateSemesterInvoices(ctx context.Context, semester int, hijriYear int, operatorID, ip, ua string) (int, error) {
-	if semester < 1 || semester > 2 {
-		return 0, fmt.Errorf("semester harus 1 atau 2")
+	if err := s.PromoteStudents(ctx, semester, hijriYear); err != nil {
+		log.Printf("[GenerateSemesterInvoices] Gagal menjalankan promosi santri: %v", err)
+	}
+
+	months := utils.GetSemesterMonths(semester)
+	if len(months) == 0 {
+		return 0, fmt.Errorf("semester tidak valid")
 	}
 
 	currentHijri := utils.GetCurrentHijriDate()
@@ -814,23 +910,17 @@ func (s *SuperUserServiceImpl) GenerateSemesterInvoices(ctx context.Context, sem
 		return 0, fmt.Errorf("tahun Hijriah harus sesuai dengan tahun saat ini (%d H)", currentHijri.Year)
 	}
 
-	// Ambil bulan-bulan di semester ini
-	months := utils.GetSemesterMonths(semester)
 	academicLabel := utils.GetAcademicYearLabel(months[0], hijriYear)
 
-	// Ambil santri yang eligible
 	students, err := s.Repository.FindStudentsForBilling(s.DB)
 	if err != nil {
 		return 0, fmt.Errorf("gagal mengambil data santri: %w", err)
 	}
 
-	// Ambil kategori Syahriyyah Muhadhoroh
 	muhadhorohCat, err := s.Repository.FindCategoryByName(s.DB, "Syahriyyah Muhadhoroh")
 	if err != nil {
 		return 0, fmt.Errorf("kategori Syahriyyah Muhadhoroh tidak ditemukan: %w", err)
 	}
-
-	// Kategori tambahan
 	var regCat, examCat domain.Category
 	var hasReg, hasExam bool
 	if cat, err := s.Repository.FindCategoryByName(s.DB, "Daftar Ulang"); err == nil {
@@ -845,26 +935,26 @@ func (s *SuperUserServiceImpl) GenerateSemesterInvoices(ctx context.Context, sem
 	generatedCount := 0
 
 	for _, student := range students {
-		if !student.Status.IsActiveBilling || student.MuhadhorohLevel == 0 {
-			continue // Skip Abdi Dalem dan santri yang sudah lulus
+		if !student.Status.IsActiveBilling {
+			continue
 		}
 		discount := student.Status.DiscountPercentage
 
 		for _, hijriMonth := range months {
-			// Skip Ramadhan
 			if !utils.IsBillableMonth(hijriMonth) {
 				continue
 			}
 
 			info := utils.GetSemesterInfo(hijriMonth, hijriYear)
 
-			// Tentukan komponen bulan ini
 			type comp struct {
 				cat   domain.Category
 				label string
 			}
 			var components []comp
-			components = append(components, comp{cat: muhadhorohCat, label: "Syahriyyah Muhadhoroh"})
+			if student.MuhadhorohLevel > 0 {
+				components = append(components, comp{cat: muhadhorohCat, label: "Syahriyyah Muhadhoroh"})
+			}
 
 			if info.IsRegistration && hasReg {
 				components = append(components, comp{cat: regCat, label: "Daftar Ulang"})
@@ -874,9 +964,20 @@ func (s *SuperUserServiceImpl) GenerateSemesterInvoices(ctx context.Context, sem
 			}
 
 			for _, c := range components {
-				amountDue := c.cat.BaseAmount * (1 - (discount / 100.0))
+				if len(student.BillingCategories) > 0 {
+					hasCategory := false
+					for _, bc := range student.BillingCategories {
+						if bc.ID == c.cat.ID {
+							hasCategory = true
+							break
+						}
+					}
+					if !hasCategory {
+						continue
+					}
+				}
 
-				// Cek duplikasi
+				amountDue := c.cat.BaseAmount * (1 - (discount / 100.0))
 				count, _ := s.Repository.CountInvoiceByHijri(s.DB, student.ID, c.cat.ID, hijriMonth, hijriYear)
 				if count > 0 {
 					continue
@@ -906,7 +1007,6 @@ func (s *SuperUserServiceImpl) GenerateSemesterInvoices(ctx context.Context, sem
 			}
 		}
 
-		// Kirim 1 notifikasi ringkasan semester ke wali
 		if generatedCount > 0 {
 			for _, g := range student.Guardians {
 				s.Notification.Send(ctx, g.UserID, "Tagihan Semester",
@@ -955,8 +1055,6 @@ func (s *SuperUserServiceImpl) UpdateSetting(ctx context.Context, key, value, op
 	return nil
 }
 
-// ─── User Management ───────────────────────────────────────
-
 func (s *SuperUserServiceImpl) GetAllUsers() ([]domain.User, error) {
 	return s.Repository.FindAllUsers(s.DB)
 }
@@ -993,12 +1091,11 @@ func (s *SuperUserServiceImpl) SendPreBillingNotifications(ctx context.Context, 
 	monthName := utils.GetHijriMonthName(nextMonth)
 
 	for _, student := range students {
-		if !student.Status.IsActiveBilling || student.MuhadhorohLevel == 0 {
+		if !student.Status.IsActiveBilling {
 			continue
 		}
 		discount := student.Status.DiscountPercentage
 
-		// Hitung estimasi tagihan
 		pondokCat, errP := s.Repository.FindCategoryByName(s.DB, "Syahriyyah Pondok")
 		muhadhorohCat, errM := s.Repository.FindCategoryByName(s.DB, "Syahriyyah Muhadhoroh")
 
@@ -1006,7 +1103,7 @@ func (s *SuperUserServiceImpl) SendPreBillingNotifications(ctx context.Context, 
 		if errP == nil {
 			estTotal += pondokCat.BaseAmount * (1 - (discount / 100.0))
 		}
-		if errM == nil {
+		if errM == nil && student.MuhadhorohLevel > 0 {
 			estTotal += muhadhorohCat.BaseAmount * (1 - (discount / 100.0))
 		}
 
@@ -1020,4 +1117,74 @@ func (s *SuperUserServiceImpl) SendPreBillingNotifications(ctx context.Context, 
 		}
 	}
 	return nil
+}
+
+func (s *SuperUserServiceImpl) PromoteStudents(ctx context.Context, targetSemester int, targetHijriYear int) error {
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		log.Printf("[Promotion] Menjalankan pemeriksaan kenaikan kelas/semester untuk Semester %d Tahun %d H", targetSemester, targetHijriYear)
+
+		var lastSemSetting, lastYearSetting domain.Setting
+		hasSem := tx.Where("`key` = ?", "last_promoted_semester").First(&lastSemSetting).Error == nil
+		hasYear := tx.Where("`key` = ?", "last_promoted_hijri_year").First(&lastYearSetting).Error == nil
+
+		if hasSem && hasYear && lastSemSetting.Value == fmt.Sprintf("%d", targetSemester) && lastYearSetting.Value == fmt.Sprintf("%d", targetHijriYear) {
+			log.Printf("[Promotion] Santri sudah dipromosikan sebelumnya untuk Semester %d Tahun %d H. Skip.", targetSemester, targetHijriYear)
+			return nil
+		}
+
+		var students []domain.Student
+		if err := tx.Where("is_active = ? AND muhadhoroh_level > ?", true, 0).Find(&students).Error; err != nil {
+			return fmt.Errorf("gagal memuat data santri: %w", err)
+		}
+
+		for _, student := range students {
+			if targetSemester == 1 {
+				nextLevel := student.MuhadhorohLevel + 1
+				if student.MuhadhorohLevel >= 9 {
+					nextLevel = 0
+				}
+
+				err := tx.Model(&domain.Student{}).Where("id = ?", student.ID).Updates(map[string]interface{}{
+					"muhadhoroh_level": nextLevel,
+					"current_semester": 1,
+				}).Error
+				if err != nil {
+					log.Printf("[Promotion] Gagal memperbarui santri %s (ke Muhadhoroh %d): %v", student.ID, nextLevel, err)
+				} else {
+					if nextLevel == 0 {
+						log.Printf("[Promotion] Santri %s (%s) telah LULUS", student.ID, student.StudentNumber)
+					} else {
+						log.Printf("[Promotion] Santri %s (%s) naik ke Muhadhoroh %d Semester 1", student.ID, student.StudentNumber, nextLevel)
+					}
+				}
+			} else if targetSemester == 2 {
+				err := tx.Model(&domain.Student{}).Where("id = ?", student.ID).Updates(map[string]interface{}{
+					"current_semester": 2,
+				}).Error
+				if err != nil {
+					log.Printf("[Promotion] Gagal memperbarui santri %s (ke Semester 2): %v", student.ID, err)
+				} else {
+					log.Printf("[Promotion] Santri %s (%s) naik ke Semester 2", student.ID, student.StudentNumber)
+				}
+			}
+		}
+
+		upsertSetting := func(key, val, desc string) {
+			var setting domain.Setting
+			if tx.Where("`key` = ?", key).First(&setting).Error != nil {
+				setting = domain.Setting{
+					Key:         key,
+					Value:       val,
+					Description: desc,
+				}
+				tx.Create(&setting)
+			} else {
+				tx.Model(&setting).Update("value", val)
+			}
+		}
+		upsertSetting("last_promoted_semester", fmt.Sprintf("%d", targetSemester), "Semester terakhir yang dipromosikan")
+		upsertSetting("last_promoted_hijri_year", fmt.Sprintf("%d", targetHijriYear), "Tahun Hijriah terakhir yang dipromosikan")
+
+		return nil
+	})
 }

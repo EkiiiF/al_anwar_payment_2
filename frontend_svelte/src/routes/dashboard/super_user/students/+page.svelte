@@ -3,7 +3,7 @@
   import { UserPlus, Edit, Trash2, Search, Power, ChevronDown, ChevronUp, MapPin, Phone, Mail, User } from 'lucide-svelte';
   import { superUserApi } from '$lib/api';
   import { formatRupiah, formatDate } from '$lib/utils';
-  import { Button, Alert, Spinner, Modal, Input, Select, Badge, Card, DataTable } from '$lib/components';
+  import { Button, Alert, Spinner, Modal, Input, Select, Badge, Card, DataTable, ConfirmDialog } from '$lib/components';
   import type { Student, Category, StudentStatusType } from '$lib/types';
   import { getMuhadhorohLabel, MUHADHOROH_OPTIONS, GUARDIAN_RELATION_OPTIONS } from '$lib/types/student.types';
   import { toast } from '$lib/stores/toast';
@@ -31,6 +31,12 @@
   }
 
   let showModal     = $state(false);
+  let showCancelConfirm = $state(false);
+  let deleteConfirmOpen = $state(false);
+  let deleteConfirmTitle = $state('');
+  let deleteConfirmMessage = $state('');
+  let deleteConfirmAction = $state<(() => void | Promise<void>) | null>(null);
+  let deleting = $state(false);
   let isEditing     = $state(false);
   let submitting    = $state(false);
   let modalError    = $state('');
@@ -42,7 +48,9 @@
   let muhadhorohLevel = $state('1');
   let currentSemester = $state('1');
   let nik             = $state('');
-  let birthDate       = $state('');
+  let birthDay        = $state('');
+  let birthMonth      = $state('');
+  let birthYear       = $state('');
   let gender          = $state('L');
   let addressLine     = $state('');
   let village         = $state('');
@@ -55,12 +63,13 @@
   let guardianPhone   = $state('');
   let guardianEmail   = $state('');
   let guardianPassword= $state('');
-  let guardianRelation= $state('Orang Tua');
+  let guardianRelation= $state('');
+  let selectedCategoryIds = $state<string[]>([]);
 
   let nisError = $state('');
   let fullNameError = $state('');
   let nikError = $state('');
-  let birthDateError = $state('');
+  let birthDayError = $state('');
   let addressLineError = $state('');
   let postalCodeError = $state('');
   let guardianNameError = $state('');
@@ -72,7 +81,7 @@
     nisError = '';
     fullNameError = '';
     nikError = '';
-    birthDateError = '';
+    birthDayError = '';
     addressLineError = '';
     postalCodeError = '';
     guardianNameError = '';
@@ -109,18 +118,15 @@
     }
   }
 
-  function prevPage() {
-    if (page > 1) {
-      page--;
-      fetchData();
-    }
+  function handlePageChange(newPage: number) {
+    page = newPage;
+    fetchData();
   }
 
-  function nextPage() {
-    if (pagination && page < pagination.pages) {
-      page++;
-      fetchData();
-    }
+  function handleLimitChange(newLimit: number) {
+    limit = newLimit;
+    page = 1;
+    fetchData();
   }
 
   onMount(fetchData);
@@ -129,14 +135,20 @@
     currentId = ''; isEditing = false; modalError = '';
     nis = ''; fullName = ''; statusTypeId = '';
     muhadhorohLevel = '1'; currentSemester = '1';
-    nik = ''; birthDate = ''; gender = 'L';
+    nik = ''; birthDay = ''; birthMonth = ''; birthYear = ''; gender = 'L';
     addressLine = ''; village = ''; district = ''; city = ''; province = ''; country = 'Indonesia'; postalCode = '';
-    guardianName = ''; guardianPhone = ''; guardianEmail = ''; guardianPassword = ''; guardianRelation = 'Orang Tua';
+    guardianName = ''; guardianPhone = ''; guardianEmail = ''; guardianPassword = ''; guardianRelation = '';
+    selectedCategoryIds = [];
     clearErrors();
+  }
+
+  function handleCancel() {
+    showCancelConfirm = true;
   }
 
   function openAdd() {
     resetForm();
+    selectedCategoryIds = categories.filter(c => c.is_active).map(c => c.id);
     showModal = true;
   }
 
@@ -149,8 +161,18 @@
     statusTypeId = std.status_id;
     muhadhorohLevel = String(std.muhadhoroh_level ?? 1);
     currentSemester = String(std.current_semester ?? 1);
+    selectedCategoryIds = std.billing_categories?.map(c => c.id) ?? [];
     nik = std.nik ?? '';
-    birthDate = std.birth_date ?? '';
+    if (std.birth_date) {
+      const parts = std.birth_date.split('T')[0].split('-');
+      if (parts.length === 3) {
+        birthYear = parts[0];
+        birthMonth = String(parseInt(parts[1]));
+        birthDay = String(parseInt(parts[2]));
+      }
+    } else {
+      birthDay = ''; birthMonth = ''; birthYear = '';
+    }
     gender = std.gender ?? 'L';
     const primaryAddr = std.addresses?.find(a => a.is_primary);
     addressLine = primaryAddr?.address_line ?? '';
@@ -202,11 +224,11 @@
       hasError = true;
     }
 
-    if (birthDate) {
-      const bDate = new Date(birthDate);
+    if (birthDay && birthMonth && birthYear) {
+      const bDate = new Date(Number(birthYear), Number(birthMonth) - 1, Number(birthDay));
       const today = new Date();
       if (bDate > today) {
-        birthDateError = 'Tanggal lahir tidak boleh di masa depan.';
+        birthDayError = 'Tanggal lahir tidak boleh lebih besar dari tanggal hari ini.';
         hasError = true;
       }
     }
@@ -227,8 +249,8 @@
     if (!guardianPhone.trim()) {
       guardianPhoneError = 'Nomor HP/WhatsApp wali wajib diisi.';
       hasError = true;
-    } else if (!/^\+?[0-9]{9,15}$/.test(guardianPhone.trim().replace(/[\s-]/g, ''))) {
-      guardianPhoneError = 'Format nomor HP tidak valid (9-15 digit angka).';
+    } else if (!/^\+?[0-9]{11,15}$/.test(guardianPhone.trim().replace(/[\s-]/g, ''))) {
+      guardianPhoneError = 'Format nomor HP tidak valid.';
       hasError = true;
     }
 
@@ -252,18 +274,21 @@
 
     submitting = true;
     try {
+      const birthDate = (birthYear && birthMonth && birthDay)
+        ? `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`
+        : '';
       const payload = {
         nis, full_name: fullName,
         status_type_id: statusTypeId,
         muhadhoroh_level: Number(muhadhorohLevel),
-        current_semester: Number(currentSemester),
         nik, birth_date: birthDate, gender,
         address_line: addressLine, village, district, city, province, country, postal_code: postalCode,
         guardian_name: guardianName, guardian_phone: guardianPhone, guardian_email: guardianEmail,
         guardian_relation: guardianRelation,
         guardian_username: nis,
         create_new_guardian: true,
-        guardian_password: guardianPassword || 'password123'
+        guardian_password: guardianPassword || 'password123',
+        category_ids: selectedCategoryIds
       };
 
       if (isEditing) {
@@ -291,14 +316,23 @@
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Hapus data santri "${name}"? Tindakan ini tidak dapat dibatalkan.`)) return;
-    try {
-      await superUserApi.deleteStudent(id);
-      await fetchData();
-    } catch (e: unknown) {
-      error = e instanceof Error ? e.message : 'Gagal menghapus santri.';
-    }
+  function handleDelete(id: string, name: string) {
+    deleteConfirmTitle = 'Hapus Data Santri';
+    deleteConfirmMessage = `Apakah Anda yakin ingin menghapus data santri "${name}"? Tindakan ini tidak dapat dibatalkan, namun seluruh riwayat pembayaran dan tagihan santri ini tetap aman sebagai histori.`;
+    deleteConfirmAction = async () => {
+      deleting = true;
+      try {
+        await superUserApi.deleteStudent(id);
+        toast.success('Data santri berhasil dihapus');
+        await fetchData();
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Gagal menghapus santri.');
+      } finally {
+        deleting = false;
+        deleteConfirmOpen = false;
+      }
+    };
+    deleteConfirmOpen = true;
   }
 </script>
 
@@ -311,28 +345,27 @@
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-black text-gray-900 tracking-tight">Data Santri</h1>
-      <p class="text-gray-500 text-sm mt-1">Kelola informasi santri, kelas Muhadhoroh, dan akun wali.</p>
+      <p class="text-gray-500 text-sm mt-1">Kelola informasi data santri.</p>
     </div>
-    <Button onclick={openAdd} variant="primary" size="md">
-      {#snippet children()}
-        <UserPlus size={16} aria-hidden="true" />
-        Tambah Santri
-      {/snippet}
-    </Button>
+    <div class="flex items-center gap-3 w-full sm:w-auto">
+      <div class="relative flex-1 sm:w-72 md:w-80">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <input
+          type="text"
+          placeholder="Cari santri berdasarkan nama atau NIS..."
+          class="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm bg-white"
+          bind:value={search}
+          oninput={handleSearch}
+        />
+      </div>
+      <Button onclick={openAdd} variant="primary" size="md" class="shrink-0">
+        {#snippet children()}
+          <UserPlus size={16} aria-hidden="true" />
+          <span class="whitespace-nowrap">Tambah Santri</span>
+        {/snippet}
+      </Button>
+    </div>
   </div>
-
-  <Card class="!p-4 flex-shrink-0">
-    <div class="relative">
-      <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-      <input
-        type="text"
-        placeholder="Cari santri berdasarkan nama atau NIS..."
-        class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm"
-        bind:value={search}
-        oninput={handleSearch}
-      />
-    </div>
-  </Card>
 
   {#if error}
     <Alert type="error" message={error} />
@@ -343,8 +376,8 @@
   {:else}
     <DataTable
       pagination={pagination}
-      onPrevPage={prevPage}
-      onNextPage={nextPage}
+      onPageChange={handlePageChange}
+      onLimitChange={handleLimitChange}
       isEmpty={students.length === 0}
       emptyTitle="Belum ada data santri"
       emptyDescription="Klik tombol 'Tambah Santri' untuk mendaftarkan santri baru."
@@ -454,6 +487,23 @@
                           <div class="flex justify-between"><span class="text-gray-500">Kelas</span><span class="font-bold text-emerald-700">{getMuhadhorohLabel(student.muhadhoroh_level, student.current_semester)}</span></div>
                           <div class="flex justify-between"><span class="text-gray-500">Status</span><span class="font-semibold">{student.status?.name ?? '-'}</span></div>
                           <div class="flex justify-between"><span class="text-gray-500">Diskon</span><span class="font-semibold text-purple-700">{student.status?.discount_percentage ?? 0}%</span></div>
+                          
+                          <div class="flex flex-col gap-1 border-t pt-2 mt-2">
+                            <span class="text-gray-500 font-semibold block mb-0.5">Tagihan Aktif:</span>
+                            <div class="flex flex-wrap gap-1">
+                              {#if student.billing_categories && student.billing_categories.length > 0}
+                                {#each student.billing_categories as bc}
+                                  <span class="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                                    {bc.name}
+                                  </span>
+                                {/each}
+                              {:else}
+                                <span class="bg-slate-50 text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full font-semibold text-[10px]">
+                                  Semua Tagihan (Default)
+                                </span>
+                              {/if}
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -517,24 +567,24 @@
   {/if}
 </div>
 
-<Modal bind:open={showModal} title={isEditing ? 'Edit Data Santri' : 'Tambah Santri Baru'} size="xl">
+<Modal bind:open={showModal} title={isEditing ? 'Edit Data Santri' : 'Tambah Santri Baru'} size="xl" confirmCloseMessage="Apakah Anda yakin ingin membatalkan tindakan ini? Perubahan yang belum disimpan akan hilang.">
   {#snippet children()}
     {#if modalError}
       <Alert type="error" message={modalError} class="mb-5" />
     {/if}
 
-    <form id="student-form" onsubmit={handleSubmit} class="space-y-6" novalidate>
+    <form id="student-form" onsubmit={handleSubmit} class="space-y-6" novalidate autocomplete="off">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <fieldset class="space-y-4">
           <legend class="text-xs font-semibold text-green-700 uppercase tracking-widest pb-2 border-b border-gray-200 w-full">
             Informasi Santri
           </legend>
 
-          <Input id="nis"      label="Nomor Induk (NIS)" bind:value={nis}      required error={nisError} oninput={() => nisError = ''} helper="Digunakan sebagai username login guardian" />
+          <Input id="nis"      label="Nomor Induk (NIS)" bind:value={nis}      required error={nisError} oninput={() => nisError = ''} />
           <Input id="fullName" label="Nama Lengkap"       bind:value={fullName} required error={fullNameError} oninput={() => fullNameError = ''} />
           
           <div class="grid grid-cols-2 gap-4">
-            <Input id="nik" label="NIK" bind:value={nik} placeholder="Nomor Induk Kependudukan" error={nikError} oninput={() => nikError = ''} />
+            <Input id="nik" label="NIK" bind:value={nik} error={nikError} oninput={() => nikError = ''} />
             <div class="flex flex-col gap-1.5">
               <label for="gender" class="text-xs font-semibold text-gray-600 uppercase tracking-wider ml-0.5">Jenis Kelamin</label>
               <select id="gender" bind:value={gender} class="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none">
@@ -544,7 +594,45 @@
             </div>
           </div>
 
-          <Input id="birthDate" label="Tanggal Lahir" type="date" bind:value={birthDate} error={birthDateError} oninput={() => birthDateError = ''} />
+          <div class="grid grid-cols-3 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label for="birthDay" class="text-xs font-medium text-slate-600 uppercase tracking-wider">Tanggal</label>
+              <input 
+                id="birthDay" 
+                type="number" 
+                bind:value={birthDay} 
+                min="1" 
+                max="31" 
+                class="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none" 
+                placeholder="1-31" 
+                oninput={() => birthDayError = ''} 
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="birthMonth" class="text-xs font-medium text-slate-600 uppercase tracking-wider">Bulan</label>
+              <select id="birthMonth" bind:value={birthMonth} class="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none">
+                <option value="">--</option>
+                {#each ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as name, i}
+                  <option value={String(i + 1)}>{name}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="birthYear" class="text-xs font-medium text-slate-600 uppercase tracking-wider">Tahun Lahir</label>
+              <input 
+                id="birthYear" 
+                type="number" 
+                bind:value={birthYear} 
+                min="1900" 
+                max={new Date().getFullYear()} 
+                class="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none" 
+                placeholder="Tahun" 
+              />
+            </div>
+            {#if birthDayError}
+              <p class="text-xs text-red-500 col-span-3">{birthDayError}</p>
+            {/if}
+          </div>
 
           <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 space-y-3">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Alamat Lengkap</p>
@@ -563,31 +651,49 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <Select
-              id="muhadhorohLevel"
-              label="Kelas Muhadhoroh"
-              bind:value={muhadhorohLevel}
-              options={MUHADHOROH_OPTIONS}
-              required
-            />
-            <Select
-              id="currentSemester"
-              label="Semester"
-              bind:value={currentSemester}
-              options={semesterOptions}
-              required
-            />
-          </div>
+          <Select
+            id="muhadhorohLevel"
+            label="Kelas Muhadhoroh"
+            bind:value={muhadhorohLevel}
+            options={MUHADHOROH_OPTIONS}
+            required
+          />
 
           <Select
             id="statusTypeId"
-            label="Status Santri (Reguler / Abdi Dalem)"
+            label="Status Santri"
             bind:value={statusTypeId}
             options={statusOptions}
             placeholder="Pilih status..."
             required
           />
+
+          <div class="space-y-2">
+            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider block ml-0.5">Kategori Tagihan yang Berlaku</span>
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              {#each categories as category}
+                <label class="flex items-center gap-2.5 text-sm font-semibold text-slate-705 cursor-pointer hover:text-green-800 hover:bg-white p-2 rounded-lg border border-transparent hover:border-slate-200 hover:shadow-sm transition-all select-none">
+                  <input
+                    type="checkbox"
+                    value={category.id}
+                    checked={selectedCategoryIds.includes(category.id)}
+                    onchange={(e) => {
+                      const checked = e.currentTarget.checked;
+                      if (checked) {
+                        if (!selectedCategoryIds.includes(category.id)) {
+                          selectedCategoryIds.push(category.id);
+                        }
+                      } else {
+                        selectedCategoryIds = selectedCategoryIds.filter(id => id !== category.id);
+                      }
+                    }}
+                    class="rounded border-slate-300 text-green-700 focus:ring-green-500/20 focus:ring-2 w-4 h-4 cursor-pointer"
+                  />
+                  <span class="leading-none">{category.name}</span>
+                </label>
+              {/each}
+            </div>
+          </div>
         </fieldset>
 
         <fieldset class="space-y-4">
@@ -598,7 +704,7 @@
           <Input id="guardianName"  label="Nama Wali Santri"  bind:value={guardianName}  required error={guardianNameError} oninput={() => guardianNameError = ''} />
           <Input id="guardianPhone" label="Nomor HP / WhatsApp"     bind:value={guardianPhone} required type="tel" error={guardianPhoneError} oninput={() => guardianPhoneError = ''} />
           <Input id="guardianEmail" label="Email"      bind:value={guardianEmail} required type="email" error={guardianEmailError} oninput={() => guardianEmailError = ''}
-                 helper="Untuk notifikasi tagihan otomatis" />
+                 autocomplete="email" />
           <Select
             id="guardianRelation"
             label="Hubungan dengan Santri"
@@ -612,7 +718,7 @@
             <Input id="guardianUsername" label="Username Login" value={nis} disabled
                    helper="Otomatis mengikuti Nomor Induk (NIS)" />
             <Input id="guardianPassword" label="Password Login"  bind:value={guardianPassword} type="password" error={guardianPasswordError} oninput={() => guardianPasswordError = ''}
-                   helper={isEditing ? 'Kosongkan jika tidak ingin mengubah' : 'Default: password123'} />
+                   autocomplete="new-password" helper={isEditing ? 'Kosongkan jika tidak ingin mengubah' : 'Default: password123'} />
           </div>
         </fieldset>
       </div>
@@ -621,7 +727,7 @@
 
   {#snippet footer()}
     <div class="flex justify-end gap-3">
-      <Button onclick={() => showModal = false} variant="outline" size="md">
+      <Button onclick={handleCancel} variant="outline" size="md">
         {#snippet children()}Batal{/snippet}
       </Button>
       <Button type="submit" form="student-form" variant="primary" size="md" loading={submitting}>
@@ -632,3 +738,31 @@
     </div>
   {/snippet}
 </Modal>
+
+<ConfirmDialog
+  bind:open={showCancelConfirm}
+  title="Konfirmasi Tindakan"
+  message="Apakah Anda yakin ingin membatalkan tindakan ini? Perubahan yang belum disimpan akan hilang."
+  confirmText="Ya, Batalkan"
+  cancelText="Kembali"
+  variant="warning"
+  onConfirm={() => {
+    showCancelConfirm = false;
+    showModal = false;
+  }}
+/>
+
+<ConfirmDialog
+  bind:open={deleteConfirmOpen}
+  title={deleteConfirmTitle}
+  message={deleteConfirmMessage}
+  confirmText="Ya, Hapus"
+  cancelText="Batal"
+  variant="danger"
+  loading={deleting}
+  onConfirm={async () => {
+    if (deleteConfirmAction) {
+      await deleteConfirmAction();
+    }
+  }}
+/>

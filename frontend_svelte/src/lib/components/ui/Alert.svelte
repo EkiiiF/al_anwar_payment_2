@@ -18,7 +18,7 @@
     error:   { bg: 'bg-red-50',       border: 'border-red-200',     text: 'text-red-600',     icon: AlertCircle },
     success: { bg: 'bg-emerald-50',   border: 'border-emerald-200', text: 'text-emerald-800', icon: CheckCircle2 },
     warning: { bg: 'bg-amber-50',     border: 'border-amber-200',   text: 'text-amber-600',   icon: AlertTriangle },
-    info:    { bg: 'bg-blue-100',     border: 'border-blue-200',    text: 'text-blue-600',    icon: Info }
+    info:    { bg: 'bg-blue-50',      border: 'border-blue-200',    text: 'text-blue-600',    icon: Info }
   };
 
   const s = $derived(styles[type]);

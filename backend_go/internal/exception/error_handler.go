@@ -8,6 +8,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// ErrorHandler — handler terpusat untuk seluruh error HTTP.
+// Menangani NotFoundError, ValidationError, ForbiddenError, validator errors, dan fallback 500.
 func ErrorHandler(ctx fiber.Ctx, err error) error {
 	if e, ok := err.(NotFoundError); ok {
 		return ctx.Status(fiber.StatusNotFound).JSON(response.NotFound(e.Message))
@@ -60,6 +62,6 @@ func ErrorHandler(ctx fiber.Ctx, err error) error {
 
 	log.Printf("[ERROR] Internal server error: %v", err)
 	return ctx.Status(fiber.StatusInternalServerError).JSON(
-		response.InternalServerError(err.Error()),
+		response.InternalServerError("Terjadi kesalahan internal pada server"),
 	)
 }

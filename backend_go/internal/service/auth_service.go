@@ -1,3 +1,4 @@
+// Package service — business logic layer.
 package service
 
 import (
@@ -6,7 +7,7 @@ import (
 	"github.com/EkiiiF/al_anwar_payment_2.git/internal/model/web/response"
 )
 
-// AuthService defines business operations for authentication.
+// AuthService — kontrak business logic autentikasi.
 type AuthService interface {
 	Login(req request.LoginRequest, ip, userAgent string) (response.LoginResponse, error)
 	Logout(token string, userID, ip, userAgent string) error

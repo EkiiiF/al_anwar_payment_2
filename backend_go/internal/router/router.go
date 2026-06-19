@@ -155,6 +155,8 @@ func NewRouter(app *fiber.App, db *gorm.DB, cfg *config.Config) service.SuperUse
 	pengasuh.Get("/dashboard", superUserCtrl.GetDashboardStats)
 	pengasuh.Get("/students", superUserCtrl.GetStudents)
 	pengasuh.Get("/invoices", superUserCtrl.GetInvoices)
+	pengasuh.Get("/invoices/paginated", superUserCtrl.GetInvoicesPaginated)
+	pengasuh.Get("/categories", superUserCtrl.GetCategories)
 
 	return superUserService
 }

@@ -16,6 +16,18 @@
   let search = $state('');
   let searchTimeout: any;
 
+  // ── Pagination State ───────────────────────────────────────
+  let page = $state(1);
+  let limit = $state(10);
+
+  const total = $derived(students.length);
+  const pages = $derived(Math.ceil(total / limit) || 1);
+  const pagination = $derived({ page, limit, total, pages });
+
+  const paginatedStudents = $derived(
+    students.slice((page - 1) * limit, page * limit)
+  );
+
   function handleSearch() {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(fetchData, 500);
@@ -31,6 +43,7 @@
   async function fetchData() {
     loading = true;
     error = '';
+    page = 1;
     try {
       const res = await pengasuhApi.getStudents(search);
       students = res.data ?? [];
@@ -82,6 +95,9 @@
     <Spinner size="lg" />
   {:else}
     <DataTable
+      pagination={pagination}
+      onPageChange={(p) => page = p}
+      onLimitChange={(l) => { limit = l; page = 1; }}
       isEmpty={students.length === 0}
       emptyTitle="Tidak ada data santri ditemukan"
       emptyDescription="Belum ada santri terdaftar atau kata kunci pencarian Anda tidak cocok."
@@ -99,7 +115,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 whitespace-nowrap">
-            {#each students as student (student.id)}
+            {#each paginatedStudents as student (student.id)}
               <tr class="hover:bg-purple-50/20 transition-colors cursor-pointer" onclick={() => toggleExpand(student.id)}>
                 <td class="px-5 py-4 font-mono text-purple-600 font-semibold text-xs">{student.student_number}</td>
                 <td class="px-5 py-4">

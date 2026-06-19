@@ -7,7 +7,7 @@ import (
 	"github.com/EkiiiF/al_anwar_payment_2.git/internal/model/web/response"
 )
 
-// GuardianService defines business operations for guardian (wali santri).
+// GuardianService — kontrak business logic wali santri.
 type GuardianService interface {
 	GetDashboardStats(ctx context.Context, userID string) (response.GuardianDashboardStats, error)
 	GetInvoices(ctx context.Context, userID string) ([]domain.Invoice, error)

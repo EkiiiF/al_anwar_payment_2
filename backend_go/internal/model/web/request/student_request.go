@@ -27,6 +27,7 @@ type CreateStudentRequest struct {
 	GuardianPassword  string `json:"guardian_password"`
 
 	GuardianID string `json:"guardian_id"`
+	CategoryIDs []string `json:"category_ids"`
 }
 
 type UpdateStudentRequest struct {
@@ -53,4 +54,5 @@ type UpdateStudentRequest struct {
 	GuardianRelation string `json:"guardian_relation"`
 	GuardianUsername string `json:"guardian_username"`
 	GuardianPassword string `json:"guardian_password"`
+	CategoryIDs      []string `json:"category_ids"`
 }

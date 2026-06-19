@@ -14,8 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// StartTokenCleanupWorker berjalan di background untuk menghapus token kadaluarsa dan transaksi pending kadaluarsa.
-// Interval: setiap 1 jam.
 func StartTokenCleanupWorker(db *gorm.DB) {
 	go func() {
 		log.Println("[Worker] Token & Payment cleanup worker started")
@@ -32,8 +30,6 @@ func StartTokenCleanupWorker(db *gorm.DB) {
 	}()
 }
 
-// StartLogCleanupWorker berjalan di background untuk membersihkan activity logs lama.
-// Interval: setiap 24 jam.
 func StartLogCleanupWorker(logService service.LogService) {
 	go func() {
 		log.Println("[Worker] Log cleanup worker started")
@@ -57,7 +53,6 @@ func StartLogCleanupWorker(logService service.LogService) {
 	}()
 }
 
-// cleanupTokens menghapus token blacklist yang sudah kadaluarsa.
 func cleanupTokens(db *gorm.DB) {
 	log.Println("[Worker] Memulai pembersihan token kadaluarsa...")
 
@@ -69,31 +64,24 @@ func cleanupTokens(db *gorm.DB) {
 	}
 }
 
-// StartAutoBillingWorker berjalan di background untuk membuat tagihan otomatis.
-// Menggunakan kalender Hijriah untuk menentukan komponen tagihan semester.
-// Interval: setiap 24 jam.
 func StartAutoBillingWorker(db *gorm.DB, suService service.SuperUserService) {
 	go func() {
 		log.Println("[Worker] Auto billing worker started (Hijri calendar-based)")
 
-		// Run once on startup regardless of date (it will skip if already exists)
 		checkAndGenerateBilling(db, suService, true)
 
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			// Periodic check only on 1st day
 			checkAndGenerateBilling(db, suService, false)
 		}
 	}()
 }
 
 func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, force bool) {
-	// ─── Hijri Calendar Info ───────────────────────────────
 	hijriNow := utils.GetCurrentHijriDate()
 
-	// Ambil setting tanggal auto billing (Hijriah)
 	targetDay := 1
 	var daySetting domain.Setting
 	if err := db.Where("`key` = ?", "billing_hijri_day").First(&daySetting).Error; err == nil {
@@ -102,13 +90,10 @@ func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, fo
 		}
 	}
 
-	// Tentukan bulan dan tahun target billing (Hijriah) - selalu mengikuti bulan/tahun saat ini
 	targetMonth := hijriNow.Month
 	targetYear := hijriNow.Year
 
-	// Jika tidak force, hanya proses di tanggal Hijriah yang ditentukan
 	if !force && hijriNow.Day != targetDay {
-		// Cek H-5 Notifikasi Pre-Billing sebelum tanggal otomatis tertagih berikutnya
 		var nextMonth, nextYear int
 		if hijriNow.Day < targetDay {
 			nextMonth = hijriNow.Month
@@ -145,7 +130,6 @@ func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, fo
 
 	ctx := context.Background()
 
-	// ─── 1. Auto Billing Syahriyyah ───────────────────────────
 	var billingMonthlySetting domain.Setting
 	if err := db.Where("`key` = ?", "auto_generate_billing").First(&billingMonthlySetting).Error; err == nil {
 		if billingMonthlySetting.Value == "true" {
@@ -153,7 +137,6 @@ func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, fo
 				log.Printf("[Worker] Bulan %s — tidak ada tagihan Syahriyyah", utils.GetHijriMonthName(targetMonth))
 			} else {
 				log.Println("[Worker] Auto billing Syahriyyah ON — generating...")
-				// Hitung padanan masehi untuk request payload agar validasi struct lolos
 				gregDate := utils.HijriToGregorian(targetYear, targetMonth, 1)
 				req := request.GenerateInvoiceRequest{
 					Month:      int(gregDate.Month()),
@@ -176,12 +159,15 @@ func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, fo
 		}
 	}
 
-	// ─── 2. Auto Billing Semester ──────────────────────────
-	var billingSemesterSetting domain.Setting
-	if err := db.Where("`key` = ?", "auto_generate_semester_billing").First(&billingSemesterSetting).Error; err == nil {
-		if billingSemesterSetting.Value == "true" {
-			isSemesterStart := (targetMonth == utils.HijriSyawal || targetMonth == utils.HijriRobiulAkhir)
-			if isSemesterStart || force {
+	isSemesterStart := (targetMonth == utils.HijriSyawal || targetMonth == utils.HijriRobiulAkhir)
+	if isSemesterStart {
+		if err := suService.PromoteStudents(ctx, semesterInfo.Number, targetYear); err != nil {
+			log.Printf("[Worker] Error promoting students: %v", err)
+		}
+
+		var billingSemesterSetting domain.Setting
+		if err := db.Where("`key` = ?", "auto_generate_semester_billing").First(&billingSemesterSetting).Error; err == nil {
+			if billingSemesterSetting.Value == "true" {
 				log.Printf("[Worker] Auto billing semester ON — generating semester %d...", semesterInfo.Number)
 				count, err := suService.GenerateSemesterInvoices(ctx, semesterInfo.Number, targetYear, "SYSTEM", "127.0.0.1", "Worker-AutoSemesterBilling")
 				if err != nil {
@@ -192,15 +178,13 @@ func checkAndGenerateBilling(db *gorm.DB, suService service.SuperUserService, fo
 				} else {
 					log.Println("[Worker] No new semester invoices (already exist)")
 				}
+			} else {
+				log.Println("[Worker] Auto billing semester OFF")
 			}
-		} else {
-			log.Println("[Worker] Auto billing semester OFF")
 		}
 	}
 }
 
-// cleanupExpiredPayments mencari pembayaran pending yang sudah kadaluarsa (lebih dari 24 jam)
-// dan mengembalikannya ke status unpaid.
 func cleanupExpiredPayments(db *gorm.DB) {
 	log.Println("[Worker] Memulai pemeriksaan transaksi pending yang kadaluarsa...")
 
@@ -226,7 +210,7 @@ func cleanupExpiredPayments(db *gorm.DB) {
 		err := db.Transaction(func(tx *gorm.DB) error {
 			statusExpired := "expire"
 			p.TransactionStatus = &statusExpired
-			
+
 			if err := tx.Save(&p).Error; err != nil {
 				return err
 			}

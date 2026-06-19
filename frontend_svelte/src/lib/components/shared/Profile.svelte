@@ -39,7 +39,9 @@
   let editEmail = $state('');
   let editPhone = $state('');
   let editGender = $state('');
-  let editBirthDate = $state('');
+  let editBirthDay = $state<number | ''>('');
+  let editBirthMonth = $state('');
+  let editBirthYear = $state<number | ''>('');
   let editAddress = $state('');
 
   let isEditing     = $state(false);
@@ -51,6 +53,7 @@
   let editFirstNameError = $state('');
   let editEmailError = $state('');
   let editPhoneError = $state('');
+  let birthDayError = $state('');
   
   let currentPwError = $state('');
   let newPwError = $state('');
@@ -60,6 +63,7 @@
     editFirstNameError = '';
     editEmailError = '';
     editPhoneError = '';
+    birthDayError = '';
   }
 
   function clearPwErrors() {
@@ -77,9 +81,20 @@
     editPhone = user.phone_number || '';
     editGender = user.gender || 'L';
     if (user.birth_date) {
-      editBirthDate = user.birth_date.split('T')[0];
+      const parts = user.birth_date.split('T')[0].split('-');
+      if (parts.length === 3) {
+        editBirthYear = parseInt(parts[0], 10);
+        editBirthMonth = String(parseInt(parts[1], 10));
+        editBirthDay = parseInt(parts[2], 10);
+      } else {
+        editBirthDay = '';
+        editBirthMonth = '';
+        editBirthYear = '';
+      }
     } else {
-      editBirthDate = '';
+      editBirthDay = '';
+      editBirthMonth = '';
+      editBirthYear = '';
     }
     editAddress = user.address || '';
     isEditing = true;
@@ -112,6 +127,27 @@
       hasError = true;
     }
 
+    let birthDateStr = '';
+    if (editBirthDay || editBirthMonth || editBirthYear) {
+      if (!editBirthDay || !editBirthMonth || !editBirthYear) {
+        birthDayError = 'Lengkapi tanggal, bulan, dan tahun lahir.';
+        hasError = true;
+      } else {
+        const day = Number(editBirthDay);
+        const month = Number(editBirthMonth);
+        const year = Number(editBirthYear);
+        if (day < 1 || day > 31) {
+          birthDayError = 'Tanggal harus di antara 1 dan 31.';
+          hasError = true;
+        } else if (year < 1900 || year > new Date().getFullYear()) {
+          birthDayError = 'Tahun lahir tidak valid.';
+          hasError = true;
+        } else {
+          birthDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00Z`;
+        }
+      }
+    }
+
     if (hasError) {
       profileMsg = 'Mohon periksa kembali input form Anda.';
       profileMsgType = 'error';
@@ -127,7 +163,7 @@
         email: editEmail,
         phone: editPhone,
         gender: editGender,
-        birth_date: editBirthDate,
+        birth_date: birthDateStr,
         address: editAddress
       });
       user = res.data;
@@ -249,7 +285,7 @@
     <Card>
       <div class="flex items-center gap-5">
         <div class="relative flex-shrink-0">
-          <div class="w-20 h-20 rounded-2xl bg-gradient-to-br {avatarColors[roleColor]} flex items-center justify-center text-white text-2xl font-black shadow-lg">
+          <div class="w-20 h-20 rounded-2xl bg-gradient-to-br {avatarColors[roleColor]} flex items-center justify-center text-white text-2xl font-black shadow-sm">
             {getInitials((roleColor === 'blue' && studentDisplayName) ? studentDisplayName : (displayName || user.username))}
           </div>
           <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
@@ -261,7 +297,7 @@
           <h2 class="text-xl font-black text-gray-900 leading-tight">
             {roleColor === 'blue' && studentDisplayName ? studentDisplayName : (displayName || user.username)}
           </h2>
-          <p class="text-sm text-gray-500 mt-1.5 font-mono">
+          <p class="text-sm text-gray-500 mt-1.5">
             {#if roleColor === 'blue'}
               NIS: {student?.student_number ?? user.username}
             {:else}
@@ -354,12 +390,45 @@
                 { value: 'P', label: 'Perempuan' }
               ]}
             />
-            <Input
-              id="birth-date"
-              label="Tanggal Lahir"
-              type="date"
-              bind:value={editBirthDate}
-            />
+            <div class="flex flex-col gap-1.5 w-full">
+              <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider ml-0.5">Tanggal Lahir</span>
+              <div class="grid grid-cols-3 gap-3">
+                <input 
+                  id="birth-day" 
+                  type="number" 
+                  bind:value={editBirthDay} 
+                  min="1" 
+                  max="31" 
+                  class="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-sm focus:ring-1 focus:ring-emerald-800 focus:border-emerald-800 outline-none transition-colors" 
+                  placeholder="Tanggal" 
+                  oninput={() => birthDayError = ''} 
+                />
+                <select 
+                  id="birth-month" 
+                  bind:value={editBirthMonth} 
+                  class="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-sm focus:ring-1 focus:ring-emerald-800 focus:border-emerald-800 outline-none transition-colors"
+                  onchange={() => birthDayError = ''}
+                >
+                  <option value="">Bulan</option>
+                  {#each ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as name, i}
+                    <option value={String(i + 1)}>{name}</option>
+                  {/each}
+                </select>
+                <input 
+                  id="birth-year" 
+                  type="number" 
+                  bind:value={editBirthYear} 
+                  min="1900" 
+                  max={new Date().getFullYear()} 
+                  class="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-sm focus:ring-1 focus:ring-emerald-800 focus:border-emerald-800 outline-none transition-colors" 
+                  placeholder="Tahun" 
+                  oninput={() => birthDayError = ''} 
+                />
+              </div>
+              {#if birthDayError}
+                <p class="text-xs text-red-500 mt-1 ml-0.5">{birthDayError}</p>
+              {/if}
+            </div>
           </div>
 
           <div class="flex flex-col gap-1.5">
@@ -395,22 +464,22 @@
           <!-- Col 1: Kontak & Akun -->
           <div class="space-y-4">
             <div>
-              <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Nama Lengkap</span>
-              <span class="font-bold text-gray-900 text-sm">{[user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' ') || '-'}</span>
+              <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Nama Lengkap</span>
+              <span class="font-medium text-slate-900 text-sm">{[user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' ') || '-'}</span>
             </div>
 
             <div>
-              <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Email</span>
-              <div class="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                <Mail size={14} class="text-gray-400 flex-shrink-0" />
+              <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Email</span>
+              <div class="flex items-center gap-2 text-slate-900 text-sm font-medium">
+                <Mail size={14} class="text-slate-400 flex-shrink-0" />
                 <span>{user.email || '-'}</span>
               </div>
             </div>
 
             <div>
-              <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">No. Telepon / WA</span>
-              <div class="flex items-center gap-2 text-gray-700 text-sm font-medium">
-                <Phone size={14} class="text-gray-400 flex-shrink-0" />
+              <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">No. Telepon / WA</span>
+              <div class="flex items-center gap-2 text-slate-900 text-sm font-medium">
+                <Phone size={14} class="text-slate-400 flex-shrink-0" />
                 <span>{user.phone_number || '-'}</span>
               </div>
             </div>
@@ -420,11 +489,11 @@
           <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Username</span>
-                <span class="font-mono font-bold text-gray-900 text-sm">@{user.username}</span>
+                <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Username</span>
+                <span class="font-medium text-slate-900 text-sm">@{user.username}</span>
               </div>
               <div>
-                <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Hak Akses</span>
+                <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Hak Akses</span>
                 <Badge 
                   label={roleLabel} 
                   variant={roleColor === 'green' ? 'success' : roleColor === 'blue' ? 'info' : 'purple'} 
@@ -434,24 +503,24 @@
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Jenis Kelamin</span>
-                <span class="font-semibold text-gray-950 text-sm">
+                <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Jenis Kelamin</span>
+                <span class="font-medium text-slate-900 text-sm">
                   {user.gender === 'L' ? 'Laki-laki' : user.gender === 'P' ? 'Perempuan' : '-'}
                 </span>
               </div>
               <div>
-                <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Tgl Lahir</span>
-                <span class="font-semibold text-gray-950 text-sm">
+                <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Tgl Lahir</span>
+                <span class="font-medium text-slate-900 text-sm">
                   {user.birth_date ? formatDate(user.birth_date) : '-'}
                 </span>
               </div>
             </div>
 
             <div>
-              <span class="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Alamat</span>
-              <div class="flex items-start gap-2 text-gray-700 text-sm font-medium">
-                <MapPin size={14} class="text-gray-400 mt-0.5 flex-shrink-0" />
-                <p class="text-sm text-gray-900 whitespace-pre-line leading-relaxed">{user.address || '-'}</p>
+              <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Alamat</span>
+              <div class="flex items-start gap-2 text-slate-900 text-sm font-medium">
+                <MapPin size={14} class="text-slate-400 mt-0.5 flex-shrink-0" />
+                <p class="text-sm text-slate-900 whitespace-pre-line leading-relaxed">{user.address || '-'}</p>
               </div>
             </div>
           </div>
@@ -477,43 +546,45 @@
             <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-gray-50">
               <User size={14} class="text-blue-600" /> Data Pribadi
             </h4>
-            <div class="bg-blue-50/30 rounded-xl border border-blue-100 p-4 space-y-3 text-xs">
+            <div class="bg-blue-50/30 rounded-xl border border-blue-100 p-4 space-y-3.5 text-xs">
               <div>
-                <span class="text-gray-500 block mb-0.5 font-medium">Nama Lengkap</span>
-                <span class="font-bold text-gray-900 text-sm">{[student.name.first_name, student.name.middle_name, student.name.last_name].filter(Boolean).join(' ')}</span>
+                <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Nama Lengkap</span>
+                <span class="font-medium text-slate-900 text-sm">{[student.name.first_name, student.name.middle_name, student.name.last_name].filter(Boolean).join(' ')}</span>
               </div>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <span class="text-gray-500 block mb-0.5 font-medium">NIS (No. Induk)</span>
-                  <span class="font-mono font-bold text-blue-700">{student.student_number}</span>
+                  <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">NIS (No. Induk)</span>
+                  <span class="font-medium text-blue-700 text-sm">{student.student_number}</span>
                 </div>
                 <div>
-                  <span class="text-gray-500 block mb-0.5 font-medium">NIK</span>
-                  <span class="font-mono font-semibold text-gray-900">{student.nik || '-'}</span>
+                  <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">NIK</span>
+                  <span class="font-medium text-slate-900 text-sm">{student.nik || '-'}</span>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <span class="text-gray-500 block mb-0.5 font-medium">Tgl Lahir</span>
-                  <span class="font-semibold text-gray-900">{student.birth_date ? formatDate(student.birth_date) : '-'}</span>
+                  <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Tgl Lahir</span>
+                  <span class="font-medium text-slate-900 text-sm">{student.birth_date ? formatDate(student.birth_date) : '-'}</span>
                 </div>
                 <div>
-                  <span class="text-gray-500 block mb-0.5 font-medium">Jenis Kelamin</span>
-                  <span class="font-semibold text-gray-900">{(student.gender === 'L' || student.gender === 'M') ? 'Laki-laki' : 'Perempuan'}</span>
+                  <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Jenis Kelamin</span>
+                  <span class="font-medium text-slate-900 text-sm">{(student.gender === 'L' || student.gender === 'M') ? 'Laki-laki' : 'Perempuan'}</span>
                 </div>
               </div>
               <div>
-                <span class="text-gray-500 block mb-0.5 font-medium">Kelas & Semester</span>
-                <span class="font-bold text-blue-800">{getMuhadhorohLabel(student.muhadhoroh_level, student.current_semester)}</span>
+                <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Kelas & Semester</span>
+                <span class="font-medium text-slate-900 text-sm">{getMuhadhorohLabel(student.muhadhoroh_level, student.current_semester)}</span>
               </div>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <span class="text-gray-500 block mb-0.5 font-medium">Kategori Status</span>
-                  <Badge label={student.status?.name ?? '-'} variant="purple" />
+                  <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Kategori Status</span>
+                  <div class="mt-0.5">
+                    <Badge label={student.status?.name ?? '-'} variant="purple" />
+                  </div>
                 </div>
                 <div>
-                  <span class="text-gray-500 block mb-0.5 font-medium">Diskon SPP</span>
-                  <span class="font-bold text-purple-700">{student.status?.discount_percentage ?? 0}%</span>
+                  <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Diskon SPP</span>
+                  <span class="font-bold text-purple-700 text-sm">{student.status?.discount_percentage ?? 0}%</span>
                 </div>
               </div>
             </div>
@@ -527,31 +598,31 @@
             <div class="space-y-3">
               {#if student.guardians && student.guardians.length > 0}
                 {#each student.guardians as g}
-                  <div class="bg-blue-50/30 rounded-xl border border-blue-100 p-4 space-y-2.5 text-xs">
+                  <div class="bg-blue-50/30 rounded-xl border border-blue-100 p-4 space-y-3 text-xs">
                     <div>
-                      <span class="text-gray-500 block mb-0.5 font-medium">Nama Wali ({g.relation})</span>
-                      <span class="font-bold text-gray-900">{[g.name.first_name, g.name.middle_name, g.name.last_name].filter(Boolean).join(' ')}</span>
+                      <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Nama Wali ({g.relation})</span>
+                      <span class="font-medium text-slate-900 text-sm">{[g.name.first_name, g.name.middle_name, g.name.last_name].filter(Boolean).join(' ')}</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">No. Telepon / WA</span>
-                        <span class="font-semibold text-gray-900">{g.phone || '-'}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">No. Telepon / WA</span>
+                        <span class="font-medium text-slate-900 text-sm">{g.phone || '-'}</span>
                       </div>
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Email</span>
-                        <span class="font-semibold text-gray-900 truncate block">{g.email || '-'}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Email</span>
+                        <span class="font-medium text-slate-900 text-sm truncate block">{g.email || '-'}</span>
                       </div>
                     </div>
                     {#if g.user?.username}
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Username Login</span>
-                        <span class="font-mono font-bold text-blue-700">@{g.user.username}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Username Login</span>
+                        <span class="font-medium text-blue-700 text-sm">@{g.user.username}</span>
                       </div>
                     {/if}
                   </div>
                 {/each}
               {:else}
-                <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 text-center py-6 text-gray-400 italic text-xs">
+                <div class="bg-gray-50 rounded-xl border border-slate-200 p-4 text-center py-6 text-slate-400 italic text-xs">
                   Belum ada data wali santri
                 </div>
               {/if}
@@ -566,48 +637,48 @@
             <div class="space-y-3">
               {#if student.addresses && student.addresses.length > 0}
                 {#each student.addresses as addr}
-                  <div class="bg-blue-50/30 rounded-xl border border-blue-100 p-4 space-y-2 text-xs relative overflow-hidden">
+                  <div class="bg-blue-50/30 rounded-xl border border-blue-100 p-4 space-y-3 text-xs relative overflow-hidden">
                     {#if addr.is_primary}
                       <span class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200">Utama</span>
                     {/if}
                     <div>
-                      <span class="text-gray-500 block mb-0.5 font-medium">Alamat</span>
-                      <p class="font-semibold text-gray-900 whitespace-pre-line">{addr.address_line || '-'}</p>
+                      <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Alamat</span>
+                      <p class="font-medium text-slate-900 text-sm whitespace-pre-line leading-relaxed">{addr.address_line || '-'}</p>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-blue-100/50">
+                    <div class="grid grid-cols-2 gap-3 mt-2 pt-2 border-t border-blue-100/50">
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Kelurahan / Desa</span>
-                        <span class="font-medium text-gray-900">{addr.village || '-'}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Kelurahan / Desa</span>
+                        <span class="font-medium text-slate-900 text-sm">{addr.village || '-'}</span>
                       </div>
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Kecamatan</span>
-                        <span class="font-medium text-gray-900">{addr.district || '-'}</span>
-                      </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                      <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Kota / Kabupaten</span>
-                        <span class="font-medium text-gray-900">{addr.city || '-'}</span>
-                      </div>
-                      <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Provinsi</span>
-                        <span class="font-medium text-gray-900">{addr.province || '-'}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Kecamatan</span>
+                        <span class="font-medium text-slate-900 text-sm">{addr.district || '-'}</span>
                       </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Kodepos</span>
-                        <span class="font-mono font-medium text-gray-900">{addr.postal_code || '-'}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Kota / Kabupaten</span>
+                        <span class="font-medium text-slate-900 text-sm">{addr.city || '-'}</span>
                       </div>
                       <div>
-                        <span class="text-gray-500 block mb-0.5 font-medium">Negara</span>
-                        <span class="font-medium text-gray-900">{addr.country || '-'}</span>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Provinsi</span>
+                        <span class="font-medium text-slate-900 text-sm">{addr.province || '-'}</span>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Kodepos</span>
+                        <span class="font-medium text-slate-900 text-sm">{addr.postal_code || '-'}</span>
+                      </div>
+                      <div>
+                        <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Negara</span>
+                        <span class="font-medium text-slate-900 text-sm">{addr.country || '-'}</span>
                       </div>
                     </div>
                   </div>
                 {/each}
               {:else}
-                <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 text-center py-6 text-gray-400 italic text-xs">
+                <div class="bg-gray-50 rounded-xl border border-slate-200 p-4 text-center py-6 text-slate-400 italic text-xs">
                   Belum ada data alamat lengkap
                 </div>
               {/if}

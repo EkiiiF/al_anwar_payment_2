@@ -88,7 +88,6 @@ func (s *AuthServiceImpl) GetProfile(userID string) (domain.User, error) {
 				}
 			}
 
-			// Update user fields from guardian
 			user.FirstName = guardian.Name.FirstName
 			user.MiddleName = guardian.Name.MiddleName
 			user.LastName = guardian.Name.LastName
@@ -97,7 +96,6 @@ func (s *AuthServiceImpl) GetProfile(userID string) (domain.User, error) {
 			user.Address = address
 		}
 	} else {
-		// Ensure default values are set if missing
 		if user.FirstName == "" {
 			user.FirstName = user.Username
 		}
@@ -136,7 +134,6 @@ func (s *AuthServiceImpl) UpdateProfile(userID string, req request.UpdateProfile
 			return domain.User{}, err
 		}
 
-		// Update guardian fields
 		guardian.Name.FirstName = req.FirstName
 		guardian.Name.MiddleName = req.MiddleName
 		guardian.Name.LastName = req.LastName
@@ -147,7 +144,6 @@ func (s *AuthServiceImpl) UpdateProfile(userID string, req request.UpdateProfile
 			return domain.User{}, err
 		}
 
-		// Also update primary address for primary student if address is provided
 		if req.Address != "" {
 			var student domain.Student
 			if err := s.DB.Preload("Addresses").Where("id = ?", guardian.StudentID).First(&student).Error; err == nil {
@@ -172,7 +168,6 @@ func (s *AuthServiceImpl) UpdateProfile(userID string, req request.UpdateProfile
 			}
 		}
 	} else {
-		// Update user record directly
 		user.FirstName = req.FirstName
 		user.MiddleName = req.MiddleName
 		user.LastName = req.LastName
@@ -191,7 +186,6 @@ func (s *AuthServiceImpl) UpdateProfile(userID string, req request.UpdateProfile
 		}
 	}
 
-	// Refetch with updated details
 	return s.GetProfile(userID)
 }
 

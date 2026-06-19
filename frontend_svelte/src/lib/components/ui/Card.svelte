@@ -5,6 +5,7 @@
   interface Props extends HTMLAttributes<HTMLDivElement> {
     padding?: boolean;
     title?: string;
+    class?: string;
     children: Snippet;
   }
 
@@ -13,18 +14,18 @@
     padding = true,
     title = '',
     children,
-    ...rest
+    ...restProps
   }: Props = $props();
 </script>
 
 <div
-  class="bg-white border border-slate-200 rounded-2xl shadow-sm transition-all duration-200
-    {padding ? 'p-5 sm:p-6' : ''}
+  class="bg-white border border-slate-200 rounded-xl shadow-sm transition-all duration-200
+    {padding ? 'p-3.5 sm:p-4' : ''}
     {className}"
-  {...rest}
+  {...restProps}
 >
   {#if title}
-    <h3 class="text-sm font-semibold text-slate-900 mb-4">{title}</h3>
+    <h3 class="text-sm font-bold text-slate-900 mb-4">{title}</h3>
   {/if}
   {@render children()}
 </div>

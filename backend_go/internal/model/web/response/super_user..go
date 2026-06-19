@@ -34,4 +34,5 @@ type SuperUserDashboardStats struct {
 	MonthlyPayments []MonthlyPaymentStat  `json:"monthly_payments"`
 	SemesterStats   []SemesterPaymentStat `json:"semester_stats"`
 	CurrentHijri    HijriMonthInfo        `json:"current_hijri"`
+	AvailableYears  []int                 `json:"available_years"`
 }

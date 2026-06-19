@@ -21,7 +21,7 @@
 </script>
 
 <div class="sticky top-4 z-20 transition-all duration-300">
-  <div class="bg-white border border-emerald-250 shadow-lg rounded-2xl p-5 hover:shadow-xl transition-all duration-300">
+  <div class="bg-white border border-slate-200 shadow-sm rounded-xl p-3.5 sm:p-4 transition-all duration-300">
     {#if payError}
       <Alert type="error" message={payError} class="mb-4 rounded-xl" />
     {/if}
@@ -35,7 +35,7 @@
           <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Total Terpilih ({selectedCount} Item)
           </p>
-          <p class="text-2xl font-black text-emerald-850 mt-0.5 leading-none">
+          <p class="text-2xl font-black text-emerald-800 mt-0.5 leading-none">
             {formatRupiah(total)}
           </p>
         </div>
@@ -45,8 +45,8 @@
         <Button 
           onclick={onClear} 
           variant="outline" 
-          size="sm" 
-          class="flex-1 sm:flex-none text-xs font-semibold border-slate-200 hover:bg-slate-50 h-[40px] px-4 rounded-xl"
+          size="md" 
+          class="flex-1 sm:flex-none"
         >
           {#snippet children()}Batalkan Pilihan{/snippet}
         </Button>
@@ -55,7 +55,7 @@
           variant="primary" 
           size="md" 
           loading={paying}
-          class="flex-1 sm:flex-none bg-teal-650 hover:bg-teal-700 text-white font-bold h-[40px] px-6 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
+          class="flex-1 sm:flex-none flex items-center justify-center gap-2"
         >
           {#snippet children()}
             <CreditCard size={15} />

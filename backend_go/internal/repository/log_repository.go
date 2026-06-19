@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// LogRepository — kontrak akses data activity log.
 type LogRepository interface {
 	Create(db *gorm.DB, log *domain.ActivityLog) error
 	FindAll(db *gorm.DB) ([]domain.ActivityLog, error)

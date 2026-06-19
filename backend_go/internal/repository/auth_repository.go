@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// AuthRepository — kontrak akses data autentikasi.
 type AuthRepository interface {
 	FindUserByUsername(db *gorm.DB, username string) (domain.User, error)
 	FindUserByID(db *gorm.DB, id string) (domain.User, error)

@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// RequireRole memastikan user memiliki salah satu role yang diizinkan.
+// RequireRole — middleware RBAC yang membatasi akses berdasarkan role user.
 func RequireRole(roles ...string) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		user, ok := ctx.Locals("user").(*domain.User)

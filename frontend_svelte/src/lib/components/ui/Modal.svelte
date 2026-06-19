@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { X } from 'lucide-svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
 
   let {
     open = $bindable(false),
     title,
     size = 'md',
+    confirmCloseMessage,
     onclose,
     children,
     footer
@@ -13,10 +15,13 @@
     open?: boolean;
     title?: string;
     size?: 'sm' | 'md' | 'lg' | 'xl';
+    confirmCloseMessage?: string;
     onclose?: () => void;
     children: Snippet;
     footer?: Snippet;
   } = $props();
+
+  let showConfirm = $state(false);
 
   const sizes: Record<string, string> = {
     sm: 'max-w-sm',
@@ -26,6 +31,16 @@
   };
 
   function close() {
+    if (confirmCloseMessage) {
+      showConfirm = true;
+      return;
+    }
+    open = false;
+    onclose?.();
+  }
+
+  function handleConfirmClose() {
+    showConfirm = false;
     open = false;
     onclose?.();
   }
@@ -76,3 +91,13 @@
     </div>
   </div>
 {/if}
+
+<ConfirmDialog
+  bind:open={showConfirm}
+  title="Konfirmasi Tindakan"
+  message={confirmCloseMessage}
+  confirmText="Ya, Batalkan"
+  cancelText="Kembali"
+  variant="warning"
+  onConfirm={handleConfirmClose}
+/>

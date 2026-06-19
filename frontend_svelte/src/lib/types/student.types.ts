@@ -15,6 +15,7 @@ export interface Category {
   base_amount: number;
   is_fixed: boolean;
   is_active: boolean;
+  is_semester?: boolean;
   description: string;
 }
 
@@ -58,6 +59,7 @@ export interface Student {
   guardians?: Guardian[];
   addresses?: Address[];
   invoices?: import('./invoice.types').Invoice[];
+  billing_categories?: Category[];
   full_name?: string;
   created_at: string;
   updated_at: string;
@@ -103,7 +105,7 @@ export const MUHADHOROH_OPTIONS = [
 
 /** Options untuk select hubungan wali */
 export const GUARDIAN_RELATION_OPTIONS = [
-  { value: 'Orang Tua', label: 'Orang Tua' },
+  // { value: 'Orang Tua', label: 'Orang Tua' },
   { value: 'Ayah', label: 'Ayah' },
   { value: 'Ibu', label: 'Ibu' },
   { value: 'Kakek', label: 'Kakek' },
@@ -112,6 +114,6 @@ export const GUARDIAN_RELATION_OPTIONS = [
   { value: 'Bibi', label: 'Bibi' },
   { value: 'Kakak', label: 'Kakak' },
   { value: 'Saudara', label: 'Saudara' },
-  { value: 'Wali', label: 'Wali' },
-  { value: 'Lainnya', label: 'Lainnya' },
+  // { value: 'Wali', label: 'Wali' },
+  // { value: 'Lainnya', label: 'Lainnya' },
 ];

@@ -1,19 +1,24 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import {
-    Users, FileX, DollarSign, CheckCircle2,
-    Moon, BookOpen, GraduationCap,
-    TrendingUp, ArrowUpRight, Activity, Calendar
+    Users, CheckCircle2, Moon, BookOpen, GraduationCap,
+    ArrowUpRight, DollarSign, FileX, TrendingUp, Activity
   } from 'lucide-svelte';
   import { pengasuhApi } from '$lib/api';
-  import { formatRupiah, getMonthName } from '$lib/utils';
-  import { Spinner, Alert, StatCard, Card, Badge } from '$lib/components';
+  import { formatRupiah } from '$lib/utils';
+  import { Spinner, Alert, StatCard, Card } from '$lib/components';
   import type { SuperUserDashboardStats } from '$lib/types';
   import Chart from 'chart.js/auto';
 
   let stats = $state<SuperUserDashboardStats | null>(null);
   let loading = $state(true);
   let error = $state('');
+
+  let systemYear = $state<number | null>(null);
+  let selectedYear = $state<number | null>(null);
+  let selectedRange = $state<string>('1yr');
+
+  let availableYears = $derived(stats?.available_years || []);
 
   let chartCanvas = $state<HTMLCanvasElement | null>(null);
   let chartInstance: Chart | null = null;
@@ -28,11 +33,12 @@
     loading = true;
     error = '';
     try {
-      const res = await pengasuhApi.getDashboard();
+      const res = await pengasuhApi.getDashboard(selectedYear || undefined, selectedRange || undefined);
       stats = res.data;
-      
-      if (stats?.monthly_payments) {
-        setTimeout(renderChart, 0); 
+      if (stats?.current_hijri) {
+        if (systemYear === null) {
+          systemYear = stats.current_hijri.hijri_year;
+        }
       }
     } catch (err: any) {
       error = err.message || 'Gagal memuat data monitoring.';
@@ -41,6 +47,25 @@
     }
   }
 
+  function selectRange(range: string) {
+    selectedRange = range;
+    selectedYear = null;
+    loadDashboardData();
+  }
+
+  function selectYear(year: number) {
+    selectedYear = year;
+    selectedRange = '';
+    loadDashboardData();
+  }
+
+  // Reactive chart rendering — triggers when canvas is bound AND data is available
+  $effect(() => {
+    if (chartCanvas && stats?.monthly_payments) {
+      tick().then(() => renderChart());
+    }
+  });
+
   function renderChart() {
     if (!chartCanvas || !stats?.monthly_payments) return;
     
@@ -48,13 +73,24 @@
       chartInstance.destroy();
     }
 
-    const months = ['Muharram', 'Safar', "Rabi'ul Awal", "Rabi'ul Akhir", 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', "Sya'ban", 'Ramadhan', 'Syawal', "Dzulqa'dah", 'Dzulhijjah'];
-    const data = stats.monthly_payments.sort((a, b) => a.month - b.month).map(mp => mp.total);
+    const monthNames = ['Muharram', 'Safar', "Rabi'ul Awal", "Rabi'ul Akhir", 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', "Sya'ban", 'Ramadhan', 'Syawal', "Dzulqa'dah", 'Dzulhijjah'];
+    
+    let sortedPayments = [...stats.monthly_payments];
+    if (!selectedRange) {
+      sortedPayments.sort((a, b) => a.month - b.month);
+    }
+    
+    const labels = sortedPayments.map(mp => {
+      const mName = monthNames[mp.month - 1] || '';
+      return selectedRange ? `${mName} ${mp.year}` : mName;
+    });
+    
+    const data = sortedPayments.map(mp => mp.total);
 
     chartInstance = new Chart(chartCanvas, {
       type: 'line',
       data: {
-        labels: months,
+        labels: labels,
         datasets: [{
           label: 'Total Pembayaran (Rp)',
           data: data,
@@ -128,8 +164,8 @@
   <title>Dashboard Monitoring | Pengasuh - Al-Anwar Payment</title>
 </svelte:head>
 
-<div class="space-y-6">
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="space-y-6 flex-1 overflow-y-auto">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
       <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-700 text-xs font-semibold uppercase tracking-wider mb-2">
         <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" aria-hidden="true"></span>
@@ -149,44 +185,36 @@
       <Spinner size="lg" />
     </div>
   {:else if stats}
+
     {#if stats.current_hijri}
-      <Card class="border-purple-100 bg-gradient-to-r from-purple-50/40 to-indigo-50/40 shadow-sm">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div class="flex items-start gap-4">
-            <div class="p-2.5 rounded-xl bg-purple-100 border border-purple-200">
-              <Moon size={20} class="text-purple-700" />
-            </div>
-            <div>
-              <h2 class="font-bold text-gray-900">Periode Hijriah Aktif</h2>
-              <p class="text-lg font-bold text-purple-800 mt-0.5">
-                {stats.current_hijri.hijri_month_name} {stats.current_hijri.hijri_year} H
-              </p>
-              <p class="text-xs text-gray-500 mt-1">{stats.current_hijri.semester_name} — Tahun Ajaran {stats.current_hijri.academic_year_label}</p>
-            </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border border-purple-100 rounded-xl bg-purple-50/40">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-lg bg-purple-100">
+            <Moon size={16} class="text-purple-800" />
           </div>
-          <div class="flex flex-wrap gap-2">
-            {#if stats.current_hijri.is_registration}
-              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
-                <BookOpen size={14} /> Daftar Ulang
-              </span>
-            {/if}
-            {#if stats.current_hijri.is_exam_month}
-              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
-                <GraduationCap size={14} /> Ujian Semester
-              </span>
-            {/if}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
-              Semester {stats.current_hijri.semester}
-            </span>
+          <div>
+            <p class="text-sm font-semibold text-purple-800">
+              {stats.current_hijri.hijri_month_name} {stats.current_hijri.hijri_year} H
+            </p>
+            <p class="text-xs text-slate-500">{stats.current_hijri.semester_name} — TA {stats.current_hijri.academic_year_label}</p>
           </div>
         </div>
-      </Card>
+        <div class="flex gap-2">
+          {#if stats.current_hijri.is_registration}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium">
+              <BookOpen size={12} /> Daftar Ulang
+            </span>
+          {/if}
+          {#if stats.current_hijri.is_exam_month}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-600 text-xs font-medium">
+              <GraduationCap size={12} /> Ujian
+            </span>
+          {/if}
+        </div>
+      </div>
     {/if}
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      <StatCard title="Total Santri"          value={stats.total_students}              subtitle="Santri terdaftar aktif"    icon={Users}        color="blue" />
-      <StatCard title="Tagihan Belum Dibayar"  value={stats.unpaid_invoices}             subtitle="Faktur belum diselesaikan"  icon={FileX}        color="amber" />
-      <StatCard title="Tagihan Lunas"         value={stats.paid_invoices}               subtitle="Faktur berhasil dibayar"   icon={CheckCircle2} color="green" />
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         title="Uang Masuk Bulan Ini"
         value={formatRupiah(stats.total_income_mo)}
@@ -195,17 +223,95 @@
         color="purple"
         accent
       />
+      <StatCard
+        title="Tagihan Lunas"
+        value={stats.paid_invoices}
+        subtitle="Faktur berhasil dibayar"
+        icon={CheckCircle2}
+        color="green"
+      />
+      <StatCard
+        title="Tagihan Belum Dibayar"
+        value={stats.unpaid_invoices}
+        subtitle="Faktur belum diselesaikan"
+        icon={FileX}
+        color="amber"
+      />
+      <StatCard
+        title="Total Santri"
+        value={stats.total_students}
+        subtitle="Santri terdaftar aktif"
+        icon={Users}
+        color="blue"
+      />
     </div>
-
+    
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2">
         <div class="border border-slate-200/80 rounded-xl bg-white overflow-hidden">
-          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-2">
               <Activity size={16} class="text-purple-600" />
-              Tren Pembayaran Bulanan
-            </h3>
-            <span class="text-xs text-gray-400">Tahun Ini</span>
+              <h3 class="text-sm font-semibold text-slate-900">Tren Pembayaran Bulanan</h3>
+            </div>
+            {#if stats}
+              <div class="flex flex-wrap items-center gap-3">
+                <!-- Range Button Group -->
+                <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+                  <button
+                    type="button"
+                    onclick={() => selectRange('6mo')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === '6mo' ? 'bg-white text-purple-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    6 Bulan
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => selectRange('1yr')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === '1yr' ? 'bg-white text-purple-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    1 Tahun
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => selectRange('3yr')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === '3yr' ? 'bg-white text-purple-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    3 Tahun
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => selectRange('all')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === 'all' ? 'bg-white text-purple-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    Semua
+                  </button>
+                </div>
+
+                <!-- Year Dropdown -->
+                <div class="relative min-w-[110px]">
+                  <select 
+                    id="dashboard-year"
+                    value={selectedYear || ''}
+                    onchange={(e) => {
+                      const val = (e.target as HTMLSelectElement).value;
+                      if (val) selectYear(Number(val));
+                    }}
+                    class="w-full pl-3 pr-8 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-800/20 focus:border-purple-800 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled={!!selectedRange}>Pilih Tahun</option>
+                    {#each availableYears as yr}
+                      <option value={yr}>{yr} H</option>
+                    {/each}
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            {/if}
           </div>
           <div class="p-5 h-[340px] w-full">
             <canvas bind:this={chartCanvas}></canvas>

@@ -83,20 +83,3 @@
     </div>
   {/each}
 </div>
-
-<style>
-  @keyframes slide-in-right {
-    from { opacity: 0; transform: translateX(1rem); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes shrink-progress {
-    from { width: 100%; }
-    to   { width: 0%; }
-  }
-  .animate-slide-in-right {
-    animation: slide-in-right 0.25s ease-out forwards;
-  }
-  .animate-shrink-progress {
-    animation: shrink-progress linear forwards;
-  }
-</style>

@@ -1,19 +1,24 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import {
-    Users, FileX, DollarSign, CheckCircle,
-    Moon, BookOpen, GraduationCap,
-    TrendingUp, ArrowUpRight
+    Users, CheckCircle, Moon, BookOpen, GraduationCap,
+    ArrowUpRight, DollarSign, FileX, TrendingUp, Activity
   } from 'lucide-svelte';
   import { superUserApi } from '$lib/api';
   import { formatRupiah } from '$lib/utils';
-  import { Spinner, Alert, StatCard, Card } from '$lib/components';
+  import { Spinner, Alert, StatCard } from '$lib/components';
   import type { SuperUserDashboardStats } from '$lib/types';
   import Chart from 'chart.js/auto';
 
   let stats = $state<SuperUserDashboardStats | null>(null);
   let loading = $state(true);
   let error = $state('');
+
+  let systemYear = $state<number | null>(null);
+  let selectedYear = $state<number | null>(null);
+  let selectedRange = $state<string>('1yr');
+
+  let availableYears = $derived(stats?.available_years || []);
 
   let chartCanvas = $state<HTMLCanvasElement | null>(null);
   let chartInstance: Chart | null = null;
@@ -28,11 +33,12 @@
     loading = true;
     error = '';
     try {
-      const res = await superUserApi.getDashboard();
+      const res = await superUserApi.getDashboard(selectedYear || undefined, selectedRange || undefined);
       stats = res.data;
-      
-      if (stats?.monthly_payments) {
-        setTimeout(renderChart, 0); 
+      if (stats?.current_hijri) {
+        if (systemYear === null) {
+          systemYear = stats.current_hijri.hijri_year;
+        }
       }
     } catch (err: any) {
       error = err.message || 'Gagal memuat data dashboard.';
@@ -41,6 +47,26 @@
     }
   }
 
+  function selectRange(range: string) {
+    selectedRange = range;
+    selectedYear = null;
+    loadDashboardData();
+  }
+
+  function selectYear(year: number) {
+    selectedYear = year;
+    selectedRange = '';
+    loadDashboardData();
+  }
+
+  // Reactive chart rendering — triggers when canvas is bound AND data is available
+  $effect(() => {
+    if (chartCanvas && stats?.monthly_payments) {
+      // Use tick to ensure DOM is fully updated before rendering
+      tick().then(() => renderChart());
+    }
+  });
+
   function renderChart() {
     if (!chartCanvas || !stats?.monthly_payments) return;
     
@@ -48,13 +74,24 @@
       chartInstance.destroy();
     }
 
-    const months = ['Muharram', 'Safar', "Rabi'ul Awal", "Rabi'ul Akhir", 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', "Sya'ban", 'Ramadhan', 'Syawal', "Dzulqa'dah", 'Dzulhijjah'];
-    const data = stats.monthly_payments.sort((a, b) => a.month - b.month).map(mp => mp.total);
+    const monthNames = ['Muharram', 'Safar', "Rabi'ul Awal", "Rabi'ul Akhir", 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', "Sya'ban", 'Ramadhan', 'Syawal', "Dzulqa'dah", 'Dzulhijjah'];
+    
+    let sortedPayments = [...stats.monthly_payments];
+    if (!selectedRange) {
+      sortedPayments.sort((a, b) => a.month - b.month);
+    }
+    
+    const labels = sortedPayments.map(mp => {
+      const mName = monthNames[mp.month - 1] || '';
+      return selectedRange ? `${mName} ${mp.year}` : mName;
+    });
+    
+    const data = sortedPayments.map(mp => mp.total);
 
     chartInstance = new Chart(chartCanvas, {
       type: 'line',
       data: {
-        labels: months,
+        labels: labels,
         datasets: [{
           label: 'Total Pembayaran (Rp)',
           data: data,
@@ -130,9 +167,11 @@
 </svelte:head>
 
 <div class="space-y-6 flex-1 overflow-y-auto">
-  <div>
-    <h1 class="text-2xl font-black text-gray-900 tracking-tight">Dashboard Keuangan</h1>
-    <p class="text-gray-500 text-sm mt-1">Pantau pembayaran, tagihan, dan statistik semester pondok.</p>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-black text-gray-900 tracking-tight">Dashboard Keuangan</h1>
+      <p class="text-gray-500 text-sm mt-1">Pantau pembayaran, tagihan, dan statistik semester pondok.</p>
+    </div>
   </div>
 
   {#if error}
@@ -173,9 +212,9 @@
       </div>
     {/if}
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
-        title="Total Tagihan Bulan Ini"
+        title="Total Pemasukan Bulan Ini"
         value={formatRupiah(stats.total_income_mo)}
         subtitle="Pemasukan pembayaran berhasil"
         icon={DollarSign}
@@ -183,57 +222,94 @@
         accent
       />
       <StatCard
-        title="Total Lunas"
+        title="Tagihan Sudah Lunas"
         value={stats.paid_invoices}
         subtitle="Tagihan sudah dibayar"
         icon={CheckCircle}
         color="teal"
       />
       <StatCard
-        title="Total Tertunggak"
+        title="Tagihan Belum Lunas"
         value={stats.unpaid_invoices}
-        subtitle="Tagihan belum dibayar"
+        subtitle="Tagihan belum diselesaikan"
         icon={FileX}
         color="amber"
       />
+      <StatCard
+        title="Total Santri Aktif"
+        value={stats.total_students}
+        subtitle="Santri terdaftar aktif"
+        icon={Users}
+        color="blue"
+      />
     </div>
-
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="border border-slate-200/80 rounded-xl p-4 bg-white">
-        <div class="flex items-center gap-2 mb-2">
-          <Users size={15} class="text-slate-400" />
-          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Santri Aktif</span>
-        </div>
-        <p class="text-lg font-bold text-slate-900">{stats.total_students}</p>
-      </div>
-      <div class="border border-slate-200/80 rounded-xl p-4 bg-white">
-        <div class="flex items-center gap-2 mb-2">
-          <TrendingUp size={15} class="text-slate-400" />
-          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Tagihan Lunas</span>
-        </div>
-        <p class="text-lg font-bold text-slate-900">{stats.paid_invoices}</p>
-      </div>
-      <div class="border border-slate-200/80 rounded-xl p-4 bg-white">
-        <div class="flex items-center gap-2 mb-2">
-          <FileX size={15} class="text-slate-400" />
-          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Belum Bayar</span>
-        </div>
-        <p class="text-lg font-bold text-amber-600">{stats.unpaid_invoices}</p>
-      </div>
-      <div class="border border-slate-200/80 rounded-xl p-4 bg-white">
-        <div class="flex items-center gap-2 mb-2">
-          <DollarSign size={15} class="text-slate-400" />
-          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Bulan Ini</span>
-        </div>
-        <p class="text-lg font-bold text-emerald-800">{formatRupiah(stats.total_income_mo)}</p>
-      </div>
-    </div>
-
+    
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2">
-        <div class="border border-slate-200/80 rounded-xl bg-white">
-          <div class="px-6 py-4 border-b border-slate-100">
-            <h3 class="text-sm font-semibold text-slate-900">Grafik Pembayaran Bulanan</h3>
+        <div class="border border-slate-200/80 rounded-xl bg-white overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <Activity size={16} class="text-emerald-700" />
+              <h3 class="text-sm font-semibold text-slate-900">Pembayaran Berhasil</h3>
+            </div>
+            {#if stats}
+              <div class="flex flex-wrap items-center gap-3">
+                <!-- Range Button Group -->
+                <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+                  <button
+                    type="button"
+                    onclick={() => selectRange('6mo')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === '6mo' ? 'bg-white text-emerald-850 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    6 Bulan
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => selectRange('1yr')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === '1yr' ? 'bg-white text-emerald-850 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    1 Tahun
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => selectRange('3yr')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === '3yr' ? 'bg-white text-emerald-850 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    3 Tahun
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => selectRange('all')}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all {selectedRange === 'all' ? 'bg-white text-emerald-850 shadow-sm' : 'text-slate-500 hover:text-slate-800'}"
+                  >
+                    Semua
+                  </button>
+                </div>
+
+                <!-- Year Dropdown -->
+                <div class="relative min-w-[110px]">
+                  <select 
+                    id="dashboard-year"
+                    value={selectedYear || ''}
+                    onchange={(e) => {
+                      const val = (e.target as HTMLSelectElement).value;
+                      if (val) selectYear(Number(val));
+                    }}
+                    class="w-full pl-3 pr-8 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-850/20 focus:border-emerald-850 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled={!!selectedRange}>Pilih Tahun</option>
+                    {#each availableYears as yr}
+                      <option value={yr}>{yr} H</option>
+                    {/each}
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            {/if}
           </div>
           <div class="p-5 h-[340px] w-full">
             <canvas bind:this={chartCanvas}></canvas>
@@ -243,7 +319,8 @@
 
       <div class="lg:col-span-1 space-y-5">
         <div class="border border-slate-200/80 rounded-xl bg-white overflow-hidden">
-          <div class="px-5 py-3 border-b border-slate-100">
+          <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+            <TrendingUp size={16} class="text-emerald-700" />
             <h3 class="text-sm font-semibold text-slate-900">Statistik Semester</h3>
           </div>
           {#if stats.semester_stats && stats.semester_stats.length > 0}

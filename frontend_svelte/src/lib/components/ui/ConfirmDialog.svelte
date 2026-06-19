@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AlertTriangle, Trash2, LogOut, X } from 'lucide-svelte';
+  import { AlertTriangle, Trash2, LogOut, Info, X } from 'lucide-svelte';
   import Button from './Button.svelte';
 
   let {
@@ -8,7 +8,7 @@
     message     = 'Apakah Anda yakin ingin melanjutkan?',
     confirmText = 'Ya, Lanjutkan',
     cancelText  = 'Batal',
-    variant     = 'danger' as 'danger' | 'warning' | 'info',
+    variant     = 'danger' as 'danger' | 'warning' | 'info' | 'logout',
     onConfirm,
     loading     = false
   }: {
@@ -17,7 +17,7 @@
     message?: string;
     confirmText?: string;
     cancelText?: string;
-    variant?: 'danger' | 'warning' | 'info';
+    variant?: 'danger' | 'warning' | 'info' | 'logout';
     onConfirm: () => void | Promise<void>;
     loading?: boolean;
   } = $props();
@@ -32,15 +32,21 @@
       btn:     'danger' as const
     },
     warning: {
-      icon:    LogOut,
+      icon:    AlertTriangle,
       iconBg:  'bg-amber-50',
       iconCls: 'text-amber-600',
       btn:     'primary' as const
     },
     info: {
-      icon:    AlertTriangle,
-      iconBg:  'bg-blue-100',
+      icon:    Info,
+      iconBg:  'bg-blue-50',
       iconCls: 'text-blue-600',
+      btn:     'primary' as const
+    },
+    logout: {
+      icon:    LogOut,
+      iconBg:  'bg-amber-50',
+      iconCls: 'text-amber-600',
       btn:     'primary' as const
     }
   };
@@ -50,7 +56,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[9998] flex items-center justify-center p-4 animate-fade-in"
+    class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998] flex items-center justify-center p-4 animate-fade-in"
     onclick={(e) => { if (e.target === e.currentTarget) close(); }}
     aria-hidden="true"
   ></div>
@@ -62,7 +68,7 @@
     aria-labelledby="confirm-title"
   >
     <div
-      class="pointer-events-auto w-full max-w-md bg-white rounded-xl border border-slate-200/80 animate-fade-in-up overflow-hidden"
+      class="pointer-events-auto w-full max-w-md bg-white rounded-2xl border border-slate-200 animate-fade-in-up overflow-hidden"
     >
       <div class="flex items-start gap-4 p-6">
         <div class="p-3 rounded-xl flex-shrink-0 {v.iconBg}">

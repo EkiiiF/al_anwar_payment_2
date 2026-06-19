@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// UserIDFromCtx — ambil user ID dari context JWT middleware.
 func UserIDFromCtx(ctx fiber.Ctx) (string, error) {
 	raw := ctx.Locals("user_id")
 	if raw == nil {

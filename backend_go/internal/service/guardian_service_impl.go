@@ -19,7 +19,6 @@ func NewGuardianService(db *gorm.DB, guardianRepo repository.GuardianRepository)
 	return &GuardianServiceImpl{DB: db, GuardianRepo: guardianRepo}
 }
 
-// findStudentByUserID adalah helper internal untuk mencari student via guardian's user account.
 func (s *GuardianServiceImpl) findStudentByUserID(ctx context.Context, userID string) (domain.Student, error) {
 	guardian, err := s.GuardianRepo.FindGuardianByUserID(ctx, s.DB, userID)
 	if err != nil {
@@ -37,6 +36,16 @@ func (s *GuardianServiceImpl) GetDashboardStats(ctx context.Context, userID stri
 	invoices, err := s.GuardianRepo.FindInvoicesByStudentID(ctx, s.DB, student.ID)
 	if err != nil {
 		return response.GuardianDashboardStats{}, fmt.Errorf("gagal mengambil tagihan: %w", err)
+	}
+
+	if student.MuhadhorohLevel == 0 {
+		var filtered []domain.Invoice
+		for _, inv := range invoices {
+			if inv.Category.Name != "Syahriyyah Muhadhoroh" {
+				filtered = append(filtered, inv)
+			}
+		}
+		invoices = filtered
 	}
 
 	payments, err := s.GuardianRepo.FindPaymentsByStudentID(ctx, s.DB, student.ID)
@@ -74,7 +83,22 @@ func (s *GuardianServiceImpl) GetInvoices(ctx context.Context, userID string) ([
 		return nil, err
 	}
 
-	return s.GuardianRepo.FindInvoicesByStudentID(ctx, s.DB, student.ID)
+	invoices, err := s.GuardianRepo.FindInvoicesByStudentID(ctx, s.DB, student.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if student.MuhadhorohLevel == 0 {
+		var filtered []domain.Invoice
+		for _, inv := range invoices {
+			if inv.Category.Name != "Syahriyyah Muhadhoroh" {
+				filtered = append(filtered, inv)
+			}
+		}
+		return filtered, nil
+	}
+
+	return invoices, nil
 }
 
 func (s *GuardianServiceImpl) GetPayments(ctx context.Context, userID string) ([]domain.Payment, error) {

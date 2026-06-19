@@ -4,6 +4,7 @@ import (
 	"strconv"
 )
 
+// InterfaceToInt — konversi interface{} ke int.
 func InterfaceToInt(val interface{}) (int, bool) {
 	if val == nil {
 		return 0, false

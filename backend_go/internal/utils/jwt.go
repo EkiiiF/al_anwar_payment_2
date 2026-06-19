@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+// JWTClaims — custom JWT claims untuk autentikasi.
 type JWTClaims struct {
 	UserID   string `json:"sub"`
 	Username string `json:"username"`
@@ -16,6 +17,7 @@ type JWTClaims struct {
 
 var jwtSecret []byte
 
+// InitJWTSecret — inisialisasi JWT secret dari konfigurasi.
 func InitJWTSecret(secret string) {
 	if secret == "" {
 		panic("JWT_SECRET tidak boleh kosong — set di .env")
@@ -23,6 +25,7 @@ func InitJWTSecret(secret string) {
 	jwtSecret = []byte(secret)
 }
 
+// GenerateJWT — buat JWT token untuk user.
 func GenerateJWT(userID, username, role string) (string, error) {
 	claims := JWTClaims{
 		UserID:   userID,
@@ -44,6 +47,7 @@ func GenerateJWT(userID, username, role string) (string, error) {
 	return tokenString, nil
 }
 
+// ValidateJWT — validasi dan parse JWT token.
 func ValidateJWT(tokenString string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,

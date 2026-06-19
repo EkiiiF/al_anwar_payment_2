@@ -10,7 +10,7 @@ type User struct {
 	ID          string         `json:"id" gorm:"type:char(36);primaryKey"`
 	Username    string         `json:"username" gorm:"type:varchar(50);unique;not null;index"`
 	Password    string         `json:"-" gorm:"type:varchar(255);not null"`
-	IsActive    bool           `json:"is_active" gorm:"column:is_active;default:true"`
+	IsActive    bool           `json:"is_active" gorm:"column:is_active"`
 	RoleID      string         `json:"role_id" gorm:"type:char(36);not null;index"`
 	Role        Role           `json:"role" gorm:"foreignKey:RoleID;references:ID;constraint:OnDelete:RESTRICT"`
 	FirstName   string         `json:"first_name" gorm:"type:varchar(100);not null"`

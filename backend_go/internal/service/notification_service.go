@@ -5,6 +5,7 @@ import (
 	"github.com/EkiiiF/al_anwar_payment_2.git/internal/model/domain"
 )
 
+// NotificationService — kontrak business logic notifikasi.
 type NotificationService interface {
 	Send(ctx context.Context, userID, title, message, category string) error
 	GetNotifications(ctx context.Context, userID string) ([]domain.Notification, error)

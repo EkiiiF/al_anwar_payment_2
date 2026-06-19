@@ -17,7 +17,7 @@ func (r *GuardianRepositoryImpl) FindGuardianByUserID(ctx context.Context, db *g
 	var guardian domain.Guardian
 	err := db.WithContext(ctx).
 		Preload("Student").
-		Preload("Student.Status").
+		Preload("Student.Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Preload("Student.Addresses").
 		Preload("Student.Guardians").
 		Preload("Student.Guardians.User").
@@ -30,7 +30,7 @@ func (r *GuardianRepositoryImpl) FindGuardiansByUserID(ctx context.Context, db *
 	var guardians []domain.Guardian
 	err := db.WithContext(ctx).
 		Preload("Student").
-		Preload("Student.Status").
+		Preload("Student.Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Preload("Student.Addresses").
 		Preload("Student.Guardians").
 		Preload("Student.Guardians.User").
@@ -42,7 +42,7 @@ func (r *GuardianRepositoryImpl) FindGuardiansByUserID(ctx context.Context, db *
 func (r *GuardianRepositoryImpl) FindStudentByID(ctx context.Context, db *gorm.DB, studentID string) (domain.Student, error) {
 	var student domain.Student
 	err := db.WithContext(ctx).
-		Preload("Status").
+		Preload("Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Where("id = ?", studentID).
 		First(&student).Error
 	return student, err
@@ -51,7 +51,7 @@ func (r *GuardianRepositoryImpl) FindStudentByID(ctx context.Context, db *gorm.D
 func (r *GuardianRepositoryImpl) FindInvoicesByStudentID(ctx context.Context, db *gorm.DB, studentID string) ([]domain.Invoice, error) {
 	var invoices []domain.Invoice
 	err := db.WithContext(ctx).
-		Preload("Category").Preload("Payments").
+		Preload("Category", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Preload("Payments").
 		Where("student_id = ?", studentID).
 		Order("year desc, month desc").
 		Find(&invoices).Error

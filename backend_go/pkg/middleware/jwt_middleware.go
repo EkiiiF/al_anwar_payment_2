@@ -1,3 +1,4 @@
+// Package middleware — JWT auth dan RBAC middleware.
 package middleware
 
 import (
@@ -9,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// JWTMiddleware memvalidasi JWT token dan menyimpan user info ke context locals.
+// JWTMiddleware — validasi JWT token dari Authorization header.
 func JWTMiddleware(db *gorm.DB, authRepo repository.AuthRepository) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		authHeader := ctx.Get("Authorization")

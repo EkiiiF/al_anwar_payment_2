@@ -3,7 +3,7 @@
   import { PlayCircle, Receipt, Filter, Search, Calendar, CheckCircle2, AlertCircle, Clock, BookOpen, GraduationCap, Moon, Layers, ChevronLeft, ChevronRight, User, X, FileText, MapPin, Phone, Mail, Eye, EyeOff, ChevronDown, ChevronUp, Zap, Settings2, PanelTopClose, PanelTop } from 'lucide-svelte';
   import { superUserApi } from '$lib/api';
   import { formatRupiah, formatDate, getHijriMonthName, HIJRI_MONTH_NAMES } from '$lib/utils';
-  import { Button, Alert, Spinner, Badge, EmptyState, Card, Select, Modal, BillingGenerator, AutoBillingSettings, BillingFilters, StudentBillingCard, StudentBillingModal } from '$lib/components';
+  import { Button, Alert, Spinner, Badge, EmptyState, Card, Select, Modal, BillingGenerator, AutoBillingSettings, StudentBillingModal, DataTable } from '$lib/components';
   import { toast } from '$lib/stores/toast';
   import type { Invoice, HijriMonthInfo, Student } from '$lib/types';
 
@@ -52,11 +52,41 @@
   let feedbackTitle              = $state('');
   let feedbackMessage            = $state('');
 
-  const monthOptions = HIJRI_MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }));
-  const yearOptions  = Array.from({ length: 5 }, (_, i) => {
-    const y = 1445 + i;
-    return { value: String(y), label: `${y} H` };
-  });
+  let search = $state('');
+  let searchTimeout: any;
+  function handleSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      page = 1;
+      fetchData();
+    }, 300);
+  }
+
+  let dynamicYearOptions = $state<{ value: string; label: string }[]>([]);
+  let dynamicMonthOptions = $state<{ value: string; label: string }[]>([]);
+
+  async function loadDynamicFilters() {
+    try {
+      const res = await superUserApi.getInvoices();
+      const invoiceList = res.data ?? [];
+      
+      // Extract unique years from invoices in database
+      const years = [...new Set(invoiceList.map(i => i.hijri_year))].filter(Boolean).sort((a, b) => b - a);
+      dynamicYearOptions = years.map(y => ({ value: String(y), label: `${y} H` }));
+      
+      // Extract unique months from invoices in database
+      const months = [...new Set(invoiceList.map(i => i.hijri_month))].filter(Boolean).sort((a, b) => a - b);
+      dynamicMonthOptions = months.map(m => ({ value: String(m), label: getHijriMonthName(m) }));
+    } catch (e) {
+      console.error('Gagal memuat filter dinamis', e);
+      // Fallback
+      dynamicYearOptions = Array.from({ length: 5 }, (_, i) => {
+        const y = 1445 + i;
+        return { value: String(y), label: `${y} H` };
+      });
+      dynamicMonthOptions = HIJRI_MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }));
+    }
+  }
 
   async function fetchData() {
     loading = true;
@@ -66,6 +96,7 @@
       if (statusFilter) filters.status = statusFilter;
       if (monthFilter)  filters.month  = monthFilter;
       if (yearFilter)   filters.year   = yearFilter;
+      if (search)       filters.search = search;
       
       const res = await superUserApi.getStudentsWithInvoicesPaginated(filters, page, limit);
       students  = res.data?.students ?? [];
@@ -99,12 +130,8 @@
       const res = await superUserApi.getDashboard();
       if (res.data?.current_hijri) {
         hijriInfo = res.data.current_hijri;
-        if (!genHijriYear && hijriInfo) {
-          genHijriYear = String(hijriInfo.hijri_year);
-        }
-        if (!genYear && hijriInfo) {
-          genYear = String(hijriInfo.hijri_year);
-        }
+        genHijriYear = String(hijriInfo.hijri_year);
+        genYear = String(hijriInfo.hijri_year);
         genMonth = String(hijriInfo.hijri_month);
       }
     } catch (e) { console.error('Gagal memuat info Hijriah', e); }
@@ -118,6 +145,7 @@
     fetchData();
     fetchSettings();
     fetchHijriInfo();
+    loadDynamicFilters();
   });
 
   function toggleBillingPanel() {
@@ -135,6 +163,7 @@
   
   $effect(() => {
     page;
+    limit;
     fetchData();
   });
 
@@ -149,16 +178,13 @@
     selectedStudent = null;
   }
 
-  function prevPage() {
-    if (page > 1) {
-      page--;
-    }
+  function handlePageChange(newPage: number) {
+    page = newPage;
   }
 
-  function nextPage() {
-    if (pagination && page < pagination.pages) {
-      page++;
-    }
+  function handleLimitChange(newLimit: number) {
+    limit = newLimit;
+    page = 1;
   }
 
   function triggerGenerateConfirmation(mode: 'monthly' | 'semester') {
@@ -171,6 +197,17 @@
         showFeedbackModal = true;
         return;
       }
+      if (hijriInfo) {
+        const selectedMonthNum = Number(genMonth);
+        const selectedYearNum = Number(genYear);
+        if (selectedMonthNum !== hijriInfo.hijri_month || selectedYearNum !== hijriInfo.hijri_year) {
+          feedbackType = 'error';
+          feedbackTitle = 'Bulan & Tahun Tidak Sesuai';
+          feedbackMessage = `Anda tidak dapat membuat tagihan untuk bulan ${getHijriMonthName(selectedMonthNum)} ${selectedYearNum} H. Pembuatan tagihan manual hanya dapat dilakukan pada bulan aktif sistem saat ini (${hijriInfo.hijri_month_name} ${hijriInfo.hijri_year} H).`;
+          showFeedbackModal = true;
+          return;
+        }
+      }
     } else {
       const yr = Number(genHijriYear);
       if (!genHijriYear || isNaN(yr) || yr < 1300 || yr > 1600) {
@@ -179,6 +216,17 @@
         feedbackMessage = 'Tahun Hijriah wajib diisi dengan angka antara 1300 - 1600 H (Contoh: 1447).';
         showFeedbackModal = true;
         return;
+      }
+      if (hijriInfo) {
+        const selectedSemNum = Number(genSemester);
+        const selectedYearNum = Number(genHijriYear);
+        if (selectedSemNum !== hijriInfo.semester || selectedYearNum !== hijriInfo.hijri_year) {
+          feedbackType = 'error';
+          feedbackTitle = 'Semester & Tahun Tidak Sesuai';
+          feedbackMessage = `Anda tidak dapat membuat tagihan semester untuk Semester ${selectedSemNum} TA ${selectedYearNum} H. Pembuatan tagihan semester hanya dapat dilakukan sesuai dengan Semester dan Tahun aktif sistem saat ini (Semester ${hijriInfo.semester} TA ${hijriInfo.hijri_year} H).`;
+          showFeedbackModal = true;
+          return;
+        }
       }
     }
     confirmMode = mode;
@@ -201,7 +249,7 @@
         await superUserApi.generateInvoices(Number(genMonth), yr);
         feedbackType = 'success';
         feedbackTitle = 'Pembuatan Tagihan Berhasil';
-        feedbackMessage = `Tagihan Syahriyyah Pondok & Muhadhoroh berhasil dibuat untuk bulan ${getHijriMonthName(Number(genMonth))} ${genYear} H!`;
+        feedbackMessage = `Tagihan Syahriyyah Pondok berhasil dibuat untuk bulan ${getHijriMonthName(Number(genMonth))} ${genYear} H!`;
         genMessage = feedbackMessage;
         genSuccess = true;
         showFeedbackModal = true;
@@ -298,11 +346,11 @@
       >
         {#snippet children()}
           {#if showBillingPanel}
-            <PanelTopClose size={15} class="text-slate-650" />
+            <PanelTopClose size={15} class="text-slate-600" />
             <span>Sembunyikan Panel</span>
             <ChevronUp size={14} class="text-slate-400" />
           {:else}
-            <PanelTop size={15} class="text-slate-650" />
+            <PanelTop size={15} class="text-slate-600" />
             <span>Tampilkan Panel</span>
             <ChevronDown size={14} class="text-slate-400" />
           {/if}
@@ -314,74 +362,6 @@
   {#if error}
     <Alert type="error" message={error} />
   {/if}
-
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <Card class="border-emerald-200 bg-emerald-50/20">
-      <div class="flex items-start gap-3">
-        <div class="p-2 rounded-lg bg-emerald-100 flex-shrink-0">
-          <Moon size={20} class="text-emerald-700" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Kalender Hijriah</p>
-          {#if hijriInfo}
-            <p class="text-lg font-black text-emerald-900 mt-1 truncate" title="{hijriInfo.hijri_month_name} {hijriInfo.hijri_year} H">
-              {hijriInfo.hijri_month_name} {hijriInfo.hijri_year} H
-            </p>
-            <p class="text-xs text-emerald-600 mt-0.5 truncate">
-              Sem {hijriInfo.semester} ({hijriInfo.is_exam_month ? 'Ujian' : 'Reguler'})
-            </p>
-          {:else}
-            <p class="text-xs text-gray-400 mt-1">Loading...</p>
-          {/if}
-        </div>
-      </div>
-    </Card>
-
-    <Card class="border-emerald-200 bg-emerald-50/30">
-      <div class="flex items-start gap-4">
-        <div class="p-2 rounded-lg bg-emerald-100 flex-shrink-0">
-          <Receipt size={20} class="text-emerald-700" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Total Tagihan</p>
-          <p class="text-2xl font-black text-emerald-900 mt-1">
-            {students.reduce((sum, s) => sum + (s.invoices?.length || 0), 0)}
-          </p>
-          <p class="text-xs text-emerald-600 mt-0.5 truncate">Tagihan dibuat</p>
-        </div>
-      </div>
-    </Card>
-
-    <Card class="border-amber-200 bg-amber-50/30">
-      <div class="flex items-start gap-4">
-        <div class="p-2 rounded-lg bg-amber-100 flex-shrink-0">
-          <Clock size={20} class="text-amber-700" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold text-amber-700 uppercase tracking-wider">Belum Bayar</p>
-          <p class="text-2xl font-black text-amber-900 mt-1">
-            {students.filter(s => s.invoices?.some(i => i.status === 'unpaid')).length}
-          </p>
-          <p class="text-xs text-amber-600 mt-0.5 truncate">Santri belum lunas</p>
-        </div>
-      </div>
-    </Card>
-
-    <Card class="border-green-200 bg-green-50/30">
-      <div class="flex items-start gap-4">
-        <div class="p-2 rounded-lg bg-green-100 flex-shrink-0">
-          <CheckCircle2 size={20} class="text-green-700" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold text-green-700 uppercase tracking-wider">Lunas</p>
-          <p class="text-2xl font-black text-green-900 mt-1">
-            {students.filter(s => s.invoices && s.invoices.length > 0 && s.invoices.every(i => i.status === 'paid')).length}
-          </p>
-          <p class="text-xs text-green-600 mt-0.5 truncate">Santri lunas semua</p>
-        </div>
-      </div>
-    </Card>
-  </div>
 
   <div class="billing-panel-wrapper {showBillingPanel ? 'billing-panel-wrapper--open' : 'billing-panel-wrapper--closed'}">
     <div class="billing-panel-inner">
@@ -410,46 +390,115 @@
     </div>
   </div>
 
-  <BillingFilters
-    bind:statusFilter={statusFilter}
-    bind:monthFilter={monthFilter}
-    bind:yearFilter={yearFilter}
-    monthOptions={monthOptions}
-    yearOptions={yearOptions}
-  />
+  <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5 hover:shadow-md transition-all duration-200">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <!-- Search Input -->
+      <div class="relative flex-1 max-w-lg w-full">
+        <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <input
+          type="text"
+          placeholder="Cari NIS atau nama santri..."
+          class="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition-all text-sm bg-slate-50/50 hover:bg-slate-50"
+          bind:value={search}
+          oninput={handleSearch}
+        />
+      </div>
+
+      <!-- Filters Selectors -->
+      <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider select-none">
+          <Filter size={14} class="text-emerald-800" />
+          <span>Filter</span>
+        </div>
+
+        <div class="w-full sm:w-40 flex-1 sm:flex-none">
+          <Select
+            id="f-status"
+            bind:value={statusFilter}
+            options={[
+              { value: '', label: 'Semua Status' },
+              { value: 'unpaid', label: 'Belum Lunas' },
+              { value: 'paid', label: 'Lunas' }
+            ]}
+            class="w-full"
+          />
+        </div>
+
+        <div class="w-full sm:w-40 flex-1 sm:flex-none">
+          <Select
+            id="f-month"
+            bind:value={monthFilter}
+            options={[{ value: '', label: 'Semua Bulan' }, ...dynamicMonthOptions]}
+            class="w-full"
+          />
+        </div>
+
+        <div class="w-full sm:w-40 flex-1 sm:flex-none">
+          <Select
+            id="f-year"
+            bind:value={yearFilter}
+            options={[{ value: '', label: 'Semua Tahun' }, ...dynamicYearOptions]}
+            class="w-full"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
 
   {#if loading}
     <Spinner size="lg" />
   {:else}
-    <div class="space-y-4 flex-1">
-      {#each students as student (student.id)}
-        <StudentBillingCard
-          student={student}
-          onclick={() => openStudentModal(student)}
-        />
-      {:else}
-        <EmptyState title="Tidak ada santri dengan tagihan" description="Coba ubah filter atau buat tagihan baru." />
-      {/each}
-      
-      {#if pagination && pagination.pages > 1}
-        <div class="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <p class="text-sm text-slate-650">
-            Menampilkan <span class="font-bold text-slate-900">{((page - 1) * limit) + 1} - {Math.min(page * limit, pagination.total)}</span> dari <span class="font-bold text-slate-900">{pagination.total}</span> santri
-          </p>
-          <div class="flex items-center gap-2">
-            <Button variant="secondary" onclick={prevPage} disabled={page <= 1} size="sm" class="text-xs font-semibold px-3 py-1.5 border border-slate-200">
-              {#snippet children()}<ChevronLeft size={16} /> Sebelumnya{/snippet}
-            </Button>
-            <div class="px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-lg text-sm font-bold border border-emerald-100">
-              Halaman {page} / {pagination.pages}
-            </div>
-            <Button variant="secondary" onclick={nextPage} disabled={!pagination || page >= pagination.pages} size="sm" class="text-xs font-semibold px-3 py-1.5 border border-slate-200">
-              {#snippet children()}Selanjutnya <ChevronRight size={16} />{/snippet}
-            </Button>
-          </div>
-        </div>
-      {/if}
-    </div>
+    <DataTable
+      pagination={pagination}
+      onPageChange={handlePageChange}
+      onLimitChange={handleLimitChange}
+      isEmpty={students.length === 0}
+      emptyTitle="Tidak ada santri dengan tagihan"
+      emptyDescription="Coba ubah filter atau buat tagihan baru."
+      paginationLabel="santri"
+    >
+      {#snippet children()}
+        <table class="w-full text-sm text-left animate-fade-in" aria-label="Tabel data tagihan santri">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-100 whitespace-nowrap">
+              <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">NIS</th>
+              <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama Santri</th>
+              <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kategori Santri</th>
+              <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Jumlah Tagihan</th>
+              <th scope="col" class="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status Pembayaran</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 whitespace-nowrap bg-white">
+            {#each students as student (student.id)}
+              {@const fullName = [student.name?.first_name, student.name?.middle_name, student.name?.last_name].filter(Boolean).join(' ')}
+              <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer" onclick={() => openStudentModal(student)}>
+                <td class="px-5 py-4 font-mono text-green-600 font-semibold text-xs">{student.student_number}</td>
+                <td class="px-5 py-4 font-semibold text-gray-900">{fullName}</td>
+                <td class="px-5 py-4">
+                  {#if student.status}
+                    <Badge label={student.status.name} variant="info" />
+                  {:else}
+                    <span class="text-gray-400">-</span>
+                  {/if}
+                </td>
+                <td class="px-5 py-4 font-semibold text-gray-700">
+                  {student.invoices?.length ?? 0} Tagihan
+                </td>
+                <td class="px-5 py-4">
+                  {#if student.invoices?.some(i => i.status === 'unpaid')}
+                    <Badge label="Belum Lunas" variant="warning" dot />
+                  {:else if student.invoices?.every(i => i.status === 'paid') && (student.invoices?.length ?? 0) > 0}
+                    <Badge label="Lunas Semua" variant="success" dot />
+                  {:else}
+                    <Badge label="Tidak Ada Tagihan" variant="secondary" dot />
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/snippet}
+    </DataTable>
   {/if}
 
   <StudentBillingModal
@@ -463,7 +512,7 @@
     {#snippet children()}
       <div class="space-y-4 py-2">
         <p class="text-sm text-slate-600">
-          Apakah Anda yakin ingin menerbitkan tagihan manual untuk periode berikut? Tindakan ini akan membuat tagihan massal bagi seluruh santri reguler yang aktif.
+          Apakah Anda yakin ingin menerbitkan tagihan manual untuk periode ini?
         </p>
         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-2">
           <div class="flex justify-between text-sm">
@@ -482,7 +531,7 @@
           </div>
           {#if confirmMode === 'semester'}
             <p class="text-xs text-amber-600 font-semibold bg-amber-50 p-2.5 rounded-lg border border-amber-100 mt-2">
-              ⚠️ Peringatan: Seluruh tagihan bulanan pada semester ini akan dibuat sekaligus. Pastikan periode semester ini sesuai dengan kalender Hijriah yang sedang berjalan.
+              Peringatan: Seluruh tagihan bulanan pada semester ini akan dibuat sekaligus.
             </p>
           {/if}
         </div>
@@ -493,7 +542,7 @@
         <Button variant="outline" onclick={() => showConfirmModal = false} size="md">
           {#snippet children()}Batal{/snippet}
         </Button>
-        <Button variant="primary" onclick={executeGenerate} loading={generating} size="md" class="!bg-emerald-800 hover:!bg-emerald-750 text-white font-bold">
+        <Button variant="primary" onclick={executeGenerate} loading={generating} size="md">
           {#snippet children()}Ya, Buat Tagihan{/snippet}
         </Button>
       </div>
@@ -515,7 +564,7 @@
         {/if}
         <div class="space-y-2 max-w-sm">
           <h3 class="font-bold text-slate-900 text-lg">{feedbackTitle}</h3>
-          <p class="text-sm text-slate-650 leading-relaxed whitespace-pre-line">
+          <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
             {feedbackMessage}
           </p>
         </div>
@@ -527,7 +576,7 @@
           variant={feedbackType === 'success' ? 'primary' : 'danger'} 
           onclick={() => showFeedbackModal = false} 
           size="md"
-          class={feedbackType === 'success' ? '!bg-emerald-800 hover:!bg-emerald-700 px-8 text-white font-bold' : 'px-8 font-bold'}
+          class="px-8"
         >
           {#snippet children()}
             {feedbackType === 'success' ? 'Selesai' : 'Mengerti'}
@@ -537,37 +586,3 @@
     {/snippet}
   </Modal>
 </div>
-
-<style>
-  /* ═══════════════════════════════════════════════════
-     Billing Panel Slide Animation
-     ═══════════════════════════════════════════════════ */
-  .billing-panel-wrapper {
-    display: grid;
-    transition: grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                margin-bottom 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .billing-panel-wrapper--open {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    margin-bottom: 24px;
-  }
-
-  .billing-panel-wrapper--closed {
-    grid-template-rows: 0fr;
-    opacity: 0;
-    margin-bottom: 0;
-    pointer-events: none;
-  }
-
-  .billing-panel-inner {
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  .billing-panel-wrapper--open .billing-panel-inner {
-    overflow: visible;
-  }
-</style>

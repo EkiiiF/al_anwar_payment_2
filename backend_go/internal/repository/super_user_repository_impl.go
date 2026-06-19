@@ -89,8 +89,24 @@ func (r *SuperUserRepositoryImpl) GetMonthlyIncomeForYear(db *gorm.DB, year int)
 	return results, nil
 }
 
+func (r *SuperUserRepositoryImpl) GetAvailableYears(db *gorm.DB) ([]int, error) {
+	var years []int
+	err := db.Model(&domain.Invoice{}).Distinct("hijri_year").Order("hijri_year desc").Pluck("hijri_year", &years).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(years) == 0 {
+		// Fallback defaults if database has no invoices
+		hijriNow := utils.GetCurrentHijriDate()
+		for y := hijriNow.Year; y >= 1443; y-- {
+			years = append(years, y)
+		}
+	}
+	return years, nil
+}
+
 func (r *SuperUserRepositoryImpl) FindAllStudents(db *gorm.DB, search string) ([]domain.Student, error) {
-	query := db.Preload("Guardians").Preload("Guardians.User").Preload("Status").Preload("Addresses")
+	query := db.Preload("Guardians").Preload("Guardians.User").Preload("Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Preload("Addresses").Preload("BillingCategories")
 
 	if search != "" {
 		s := "%" + search + "%"
@@ -117,7 +133,7 @@ func (r *SuperUserRepositoryImpl) FindAllStudentsPaginated(db *gorm.DB, search s
 
 	offset := (page - 1) * limit
 	var students []domain.Student
-	err := query.Preload("Guardians").Preload("Guardians.User").Preload("Status").Preload("Addresses").
+	err := query.Preload("Guardians").Preload("Guardians.User").Preload("Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Preload("Addresses").Preload("BillingCategories").
 		Order("first_name asc").
 		Limit(limit).
 		Offset(offset).
@@ -127,7 +143,7 @@ func (r *SuperUserRepositoryImpl) FindAllStudentsPaginated(db *gorm.DB, search s
 
 func (r *SuperUserRepositoryImpl) FindStudentByID(db *gorm.DB, id string) (domain.Student, error) {
 	var student domain.Student
-	err := db.Preload("Guardians").Preload("Guardians.User").Preload("Status").Preload("Addresses").
+	err := db.Preload("Guardians").Preload("Guardians.User").Preload("Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Preload("Addresses").Preload("BillingCategories").
 		First(&student, "id = ?", id).Error
 	return student, err
 }
@@ -229,7 +245,7 @@ func (r *SuperUserRepositoryImpl) DeleteCategory(db *gorm.DB, id string) error {
 
 func (r *SuperUserRepositoryImpl) FindStudentsForBilling(db *gorm.DB) ([]domain.Student, error) {
 	var students []domain.Student
-	err := db.Preload("Status").Preload("Guardians").
+	err := db.Preload("Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Preload("Guardians").Preload("BillingCategories").
 		Joins("JOIN student_status_types ON student_status_types.id = students.status_id").
 		Where("students.is_active = ? AND student_status_types.is_active_billing = ?", true, true).
 		Find(&students).Error
@@ -269,7 +285,7 @@ func (r *SuperUserRepositoryImpl) CreateInvoice(db *gorm.DB, invoice *domain.Inv
 }
 
 func (r *SuperUserRepositoryImpl) FindAllInvoices(db *gorm.DB, status string, month int, year int) ([]domain.Invoice, error) {
-	query := db.Preload("Student").Preload("Category")
+	query := db.Preload("Student").Preload("Category", func(db *gorm.DB) *gorm.DB { return db.Unscoped() })
 
 	if status != "" {
 		query = query.Where("status = ?", status)
@@ -286,36 +302,47 @@ func (r *SuperUserRepositoryImpl) FindAllInvoices(db *gorm.DB, status string, mo
 	return invoices, err
 }
 
-func (r *SuperUserRepositoryImpl) FindStudentsWithInvoicesPaginated(db *gorm.DB, status string, month int, year int, page int, limit int) ([]domain.Student, int64, error) {
-	studentIDsQuery := db.Model(&domain.Invoice{}).Select("DISTINCT student_id")
+func (r *SuperUserRepositoryImpl) FindStudentsWithInvoicesPaginated(db *gorm.DB, status string, month int, year int, search string, page int, limit int) ([]domain.Student, int64, error) {
+	studentIDsQuery := db.Model(&domain.Invoice{}).
+		Select("DISTINCT invoices.student_id").
+		Joins("JOIN students ON students.id = invoices.student_id")
 
 	if status != "" {
-		studentIDsQuery = studentIDsQuery.Where("status = ?", status)
+		studentIDsQuery = studentIDsQuery.Where("invoices.status = ?", status)
 	}
 	if month > 0 {
-		studentIDsQuery = studentIDsQuery.Where("hijri_month = ?", month)
+		studentIDsQuery = studentIDsQuery.Where("invoices.hijri_month = ?", month)
 	}
 	if year > 0 {
-		studentIDsQuery = studentIDsQuery.Where("hijri_year = ?", year)
+		studentIDsQuery = studentIDsQuery.Where("invoices.hijri_year = ?", year)
+	}
+	if search != "" {
+		s := "%" + search + "%"
+		studentIDsQuery = studentIDsQuery.Where("students.first_name LIKE ? OR students.last_name LIKE ? OR students.student_number LIKE ?", s, s, s)
 	}
 
 	var total int64
-	countQuery := db.Model(&domain.Invoice{})
+	countQuery := db.Model(&domain.Invoice{}).
+		Joins("JOIN students ON students.id = invoices.student_id")
 	if status != "" {
-		countQuery = countQuery.Where("status = ?", status)
+		countQuery = countQuery.Where("invoices.status = ?", status)
 	}
 	if month > 0 {
-		countQuery = countQuery.Where("hijri_month = ?", month)
+		countQuery = countQuery.Where("invoices.hijri_month = ?", month)
 	}
 	if year > 0 {
-		countQuery = countQuery.Where("hijri_year = ?", year)
+		countQuery = countQuery.Where("invoices.hijri_year = ?", year)
 	}
-	if err := countQuery.Distinct("student_id").Count(&total).Error; err != nil {
+	if search != "" {
+		s := "%" + search + "%"
+		countQuery = countQuery.Where("students.first_name LIKE ? OR students.last_name LIKE ? OR students.student_number LIKE ?", s, s, s)
+	}
+	if err := countQuery.Distinct("invoices.student_id").Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	var studentIDs []string
-	if err := studentIDsQuery.Pluck("student_id", &studentIDs).Error; err != nil {
+	if err := studentIDsQuery.Pluck("invoices.student_id", &studentIDs).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -325,7 +352,7 @@ func (r *SuperUserRepositoryImpl) FindStudentsWithInvoicesPaginated(db *gorm.DB,
 
 	offset := (page - 1) * limit
 
-	studentsQuery := db.Preload("Status").Preload("Addresses").Preload("Guardians").Preload("Guardians.User").
+	studentsQuery := db.Preload("Status", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Preload("Addresses").Preload("Guardians").Preload("Guardians.User").
 		Where("id IN ?", studentIDs).
 		Order("first_name asc").
 		Limit(limit).
@@ -337,16 +364,7 @@ func (r *SuperUserRepositoryImpl) FindStudentsWithInvoicesPaginated(db *gorm.DB,
 	}
 
 	for i := range students {
-		invoiceQuery := db.Preload("Category").Where("student_id = ?", students[i].ID)
-		if status != "" {
-			invoiceQuery = invoiceQuery.Where("status = ?", status)
-		}
-		if month > 0 {
-			invoiceQuery = invoiceQuery.Where("hijri_month = ?", month)
-		}
-		if year > 0 {
-			invoiceQuery = invoiceQuery.Where("hijri_year = ?", year)
-		}
+		invoiceQuery := db.Preload("Category", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).Where("student_id = ?", students[i].ID)
 		var invoices []domain.Invoice
 		if err := invoiceQuery.Order("hijri_year desc, hijri_month desc").Find(&invoices).Error; err == nil {
 			students[i].Invoices = invoices
@@ -479,7 +497,7 @@ func (r *SuperUserRepositoryImpl) FindAllInvoicesPaginated(db *gorm.DB, status s
 
 	offset := (page - 1) * limit
 	var invoices []domain.Invoice
-	err := query.Preload("Student").Preload("Category").
+	err := query.Preload("Student").Preload("Category", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Order("created_at desc").
 		Limit(limit).
 		Offset(offset).
