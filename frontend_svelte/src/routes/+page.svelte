@@ -93,9 +93,7 @@
       <div class="relative max-w-5xl mx-auto text-center">
         <!-- Logo besar -->
         <div class="flex justify-center mb-8 transition-all duration-[1200ms] cubic-bezier(0.16, 1, 0.3, 1) transform {mounted ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-16 opacity-0 scale-90'}">
-          <div class="bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-            <img src={logo} alt="Logo Pondok Pesantren Al-Anwar" class="w-40 h-40 object-contain" />
-          </div>
+          <img src={logo} alt="Logo Pondok Pesantren Al-Anwar" class="w-40 h-40 object-contain" />
         </div>
 
         <h1 class="text-4xl md:text-6xl font-bold text-slate-900 mb-5 leading-[1.1] tracking-tight transition-all duration-[1200ms] delay-150 cubic-bezier(0.16, 1, 0.3, 1) transform {mounted ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0'}">
@@ -169,11 +167,9 @@
     <!-- ─── Tentang ───────────────────────────────────────── -->
     <section id="#" class="py-20 px-4 bg-emerald-800 scroll-mt-16">
       <div class="max-w-3xl mx-auto text-center">
-        <div class="flex justify-center mb-6">
-          <div class="p-3 bg-white/10">
-            <img src={logo} alt="Logo Al-Anwar" class="w-14 h-14 object-contain" />
-          </div>
-        </div>
+        <!-- <div class="flex justify-center mb-6">
+          <img src={logo} alt="Logo Al-Anwar" class="w-14 h-14 object-contain" />
+        </div> -->
         <h2 class="text-3xl font-bold text-white mb-3">Pondok Pesantren Al-Anwar</h2>
         <p class="text-emerald-100 leading-relaxed">
           Pondok Pesantren Putra - Putri Al-Anwar Dusun Kauman, Desa Selo, RT 05/RW 08 Kecamatan Tawangharjo Kabupaten Grobogan — Platform ini dibangun untuk mempermudah pengelolaan administrasi keuangan santri secara digital, transparan, dan aman.

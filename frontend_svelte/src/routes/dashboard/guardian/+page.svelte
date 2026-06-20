@@ -48,7 +48,7 @@
   {:else if stats}
     {@const student = stats.student}
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
       <StatCard
         title="Tagihan Belum Bayar"
         value={stats.unpaid_count}
@@ -60,18 +60,20 @@
       <StatCard
         title="Total Tertunggak"
         value={formatRupiah(stats.total_unpaid)}
-        subtitle="Jumlah yang harus dibayar"
+        subtitle="Jumlah harus dibayar"
         icon={Bell}
         color="amber"
       />
       {#if stats.recent_payments && stats.recent_payments.length > 0}
-        <StatCard
-          title="Pembayaran Terakhir"
-          value={formatRupiah(lastPaymentTotal)}
-          subtitle="Transaksi terakhir (total)"
-          icon={CheckCircle}
-          color="green"
-        />
+        <div class="col-span-2 sm:col-span-1">
+          <StatCard
+            title="Pembayaran Terakhir"
+            value={formatRupiah(lastPaymentTotal)}
+            subtitle="Transaksi terakhir (total)"
+            icon={CheckCircle}
+            color="green"
+          />
+        </div>
       {/if}
     </div>
 

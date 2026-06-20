@@ -31,27 +31,27 @@
 </script>
 
 <div
-  class="relative overflow-hidden rounded-xl border p-5 transition-colors duration-200
+  class="relative overflow-hidden rounded-xl border p-3.5 sm:p-5 transition-colors duration-200
     {accent
       ? 'bg-emerald-800 border-emerald-800 text-white'
       : 'bg-white border-slate-200/80 hover:border-slate-300'}"
 >
-  <div class="relative z-10 flex items-start gap-4">
+  <div class="relative z-10 flex items-start gap-2.5 sm:gap-4">
     <div
-      class="p-2.5 rounded-lg flex-shrink-0
+      class="p-1.5 sm:p-2.5 rounded-lg flex-shrink-0
         {accent ? 'bg-white/15 text-white' : c.icon}"
     >
-      <Icon size={20} />
+      <Icon class="w-4 h-4 sm:w-5 sm:h-5" />
     </div>
     <div class="min-w-0">
-      <p class="text-xs font-medium uppercase tracking-wider mb-1 {accent ? 'text-emerald-100' : 'text-slate-500'}">
+      <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-0.5 sm:mb-1 {accent ? 'text-emerald-100' : 'text-slate-550'}">
         {title}
       </p>
-      <p class="text-2xl font-bold leading-none {accent ? 'text-white' : 'text-slate-900'}">
+      <p class="text-base sm:text-2xl font-black leading-none {accent ? 'text-white' : 'text-slate-900'}">
         {value}
       </p>
       {#if subtitle}
-        <p class="text-xs mt-1.5 {accent ? 'text-emerald-200' : 'text-slate-500'}">{subtitle}</p>
+        <p class="text-[10px] sm:text-xs mt-1 sm:mt-1.5 leading-normal {accent ? 'text-emerald-200' : 'text-slate-500'}">{subtitle}</p>
       {/if}
     </div>
   </div>

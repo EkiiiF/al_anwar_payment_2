@@ -20,6 +20,14 @@
 
 <div 
   onclick={onclick}
+  onkeydown={(e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      onclick();
+    }
+  }}
+  role="button"
+  tabindex="0"
   class="group bg-white border border-slate-200 hover:border-emerald-600/60 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-emerald-800 cursor-pointer p-5"
 >
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

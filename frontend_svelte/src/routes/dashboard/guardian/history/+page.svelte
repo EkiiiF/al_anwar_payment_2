@@ -172,49 +172,58 @@
     </Card>
   {:else}
     <div class="space-y-4">
-      <div class="grid grid-cols-1 gap-4">
+      <div class="divide-y divide-slate-100/80">
         {#each paginatedTransactions as tx (tx.id)}
-          <Card>
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div class="flex items-start gap-4">
-                <div class="p-3 rounded-xl bg-green-100 border border-green-200 flex-shrink-0">
-                  <Receipt size={20} class="text-green-700" aria-hidden="true" />
-                </div>
-                <div>
-                  <p class="font-bold text-gray-900">
-                    Pembayaran {tx.invoices.length} Tagihan
-                  </p>
-                  <div class="flex flex-wrap gap-1 mt-1">
-                    {#each tx.invoices as inv}
-                      <span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                        {getHijriMonthName(inv.hijri_month)} {inv.hijri_year} H
-                      </span>
-                    {/each}
-                  </div>
-                  <p class="text-xs font-mono text-gray-400 mt-1.5">{tx.external_id ?? tx.id}</p>
-                  <p class="text-xs text-gray-500 mt-1">{formatDate(tx.payment_date, true)}</p>
-                  {#if tx.payment_method}
-                    <p class="text-xs text-gray-400 mt-0.5">Via: {tx.payment_method}</p>
-                  {/if}
-                </div>
+          <div class="py-3.5 px-1.5 hover:bg-slate-50/50 transition-colors flex justify-between items-start gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <p class="font-extrabold text-slate-800 text-sm sm:text-base leading-snug">
+                  Pembayaran {tx.invoices.length} Tagihan
+                </p>
+                {#if tx.payment_method}
+                  <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded uppercase">
+                    {tx.payment_method}
+                  </span>
+                {/if}
               </div>
 
-              <div class="flex flex-col sm:items-end gap-2">
-                <p class="text-xl font-black text-gray-900">{formatRupiah(tx.total_amount)}</p>
+              <div class="flex flex-wrap gap-1 mt-1.5">
+                {#each tx.invoices as inv}
+                  <span class="text-[9px] font-semibold bg-blue-50/70 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100/60">
+                    {getHijriMonthName(inv.hijri_month)} {inv.hijri_year} H
+                  </span>
+                {/each}
+              </div>
+
+              <div class="flex flex-wrap items-center gap-x-2 text-[10px] text-slate-455 font-medium mt-2">
+                <span>{formatDate(tx.payment_date || tx.created_at, true)}</span>
+                <span class="text-slate-300">•</span>
+                <span class="font-mono text-slate-400">{tx.external_id ?? tx.id}</span>
+              </div>
+            </div>
+
+            <div class="text-right flex-shrink-0">
+              <p class="text-base sm:text-lg font-black text-slate-900 leading-none">
+                {formatRupiah(tx.total_amount)}
+              </p>
+
+              <div class="flex items-center justify-end gap-2 mt-2">
                 <Badge
                   label={translateTransactionStatus(tx.transaction_status ?? '')}
                   variant={getStatusVariant(tx.transaction_status ?? '')}
-                  dot
+                  class="text-[10px] py-0 px-1.5 font-bold"
                 />
+                <span class="text-slate-300 text-[10px]">•</span>
                 <button
+                  type="button"
                   onclick={() => viewReceipt(tx)}
-                  class="text-xs text-green-600 hover:text-green-700 underline underline-offset-2 transition-colors font-semibold"
+                  class="text-[10px] text-green-600 hover:text-green-700 underline font-extrabold cursor-pointer"
                 >
                   Lihat Struk
                 </button>
               </div>
             </div>
-          </Card>
+          </div>
         {/each}
       </div>
       <Paginator

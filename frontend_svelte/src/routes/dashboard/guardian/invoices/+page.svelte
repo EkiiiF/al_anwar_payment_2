@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { guardianApi } from '$lib/api';
   import { formatRupiah, getInvoiceStatusStyle, getHijriMonthName } from '$lib/utils';
-  import { Spinner, Alert, Button, Card, Badge, EmptyState, CheckoutSummary, PondokBillingColumn, SemesterBillingColumn, InvoiceHistoryList } from '$lib/components';
+  import { Spinner, Alert, Button, Card, Badge, EmptyState, ConfirmDialog, PondokBillingColumn, SemesterBillingColumn, InvoiceHistoryList } from '$lib/components';
   import type { Invoice } from '$lib/types';
   import { ShoppingCart, CreditCard, CheckSquare, Layers, Calendar } from 'lucide-svelte';
 
@@ -13,6 +13,11 @@
   let payError    = $state('');
 
   let selectedIds = $state<Set<string>>(new Set());
+  
+  // Modal control states hoisted from columns
+  let showPondokModal = $state(false);
+  let activeSemesterGroup = $state<any>(null);
+  let showSemesterModal = $state(false);
 
   const unpaidInvoices = $derived(invoices.filter(i => i.status === 'unpaid'));
 
@@ -110,8 +115,15 @@
     }
   });
 
-  async function handleCheckout() {
+  let showConfirmPay = $state(false);
+
+  function handleCheckout() {
     if (selectedCount === 0) return;
+    showConfirmPay = true;
+  }
+
+  async function executeCheckout() {
+    showConfirmPay = false;
     paying   = true;
     payError = '';
     try {
@@ -195,24 +207,24 @@
   {:else if loading}
     <Spinner size="lg" />
   {:else}
-    {#if selectedCount > 0}
-      <CheckoutSummary
-        selectedCount={selectedCount}
-        total={total}
-        paying={paying}
-        payError={payError}
-        onClear={clearSelection}
-        onCheckout={handleCheckout}
-      />
-    {/if}
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start">
       <PondokBillingColumn
         pondokInvoices={pondokInvoices}
         selectedIds={selectedIds}
         toggleSelect={toggleSelect}
         selectAllPondok={selectAllPondok}
         deselectAllPondok={deselectAllPondok}
+        onCheckout={handleCheckout}
+        paying={paying}
+        totalSelected={total}
+        bind:showPondokModal={showPondokModal}
+        onSwitchToSemester={() => {
+          showPondokModal = false;
+          if (semesterGroups.length > 0) {
+            activeSemesterGroup = semesterGroups[0];
+            showSemesterModal = true;
+          }
+        }}
       />
 
       <SemesterBillingColumn
@@ -223,8 +235,29 @@
         selectAllSemester={selectAllSemester}
         deselectAllSemester={deselectAllSemester}
         selectSemester={selectSemester}
+        onCheckout={handleCheckout}
+        paying={paying}
+        totalSelected={total}
+        bind:activeGroup={activeSemesterGroup}
+        bind:showModal={showSemesterModal}
+        onSwitchToPond={() => {
+          activeSemesterGroup = null;
+          showSemesterModal = false;
+          showPondokModal = true;
+        }}
       />
     </div>
+
+    <ConfirmDialog
+      bind:open={showConfirmPay}
+      title="Konfirmasi Pembayaran"
+      message={`Apakah Anda yakin ingin memproses pembayaran sebesar ${formatRupiah(total)}?`}
+      confirmText="Ya, Bayar"
+      cancelText="Batal"
+      variant="info"
+      onConfirm={executeCheckout}
+      loading={paying}
+    />
 
     {@const otherInvoices = invoices.filter(i => i.status !== 'unpaid')}
     {#if otherInvoices.length > 0}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Card, Badge } from '$lib/components';
+  import { Card, Badge, Paginator } from '$lib/components';
   import { formatRupiah, getInvoiceStatusStyle, getHijriMonthName } from '$lib/utils';
   import type { Invoice } from '$lib/types';
 
@@ -12,6 +12,20 @@
     refreshStatus: (orderId: string) => void;
     resumePayment?: (snapToken: string) => void;
   } = $props();
+
+  let page = $state(1);
+  let limit = $state(5);
+  const totalInvoices = $derived(otherInvoices.length);
+  const totalPages = $derived(Math.ceil(totalInvoices / limit) || 1);
+  const paginatedInvoices = $derived(
+    otherInvoices.slice((page - 1) * limit, page * limit)
+  );
+
+  $effect(() => {
+    if (page > totalPages) {
+      page = totalPages;
+    }
+  });
 </script>
 
 <div class="space-y-3.5">
@@ -19,7 +33,7 @@
   
   <Card padding={false} class="border-slate-200 shadow-sm overflow-hidden bg-white rounded-2xl">
     <div class="divide-y divide-slate-100">
-      {#each otherInvoices as invoice (invoice.id)}
+      {#each paginatedInvoices as invoice (invoice.id)}
         {@const style = getInvoiceStatusStyle(invoice.status)}
         <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4.5 hover:bg-slate-50/50 transition-colors gap-3">
           <div class="min-w-0">
@@ -35,7 +49,7 @@
             <p class="text-[10px] font-mono text-slate-400 mt-0.5">{invoice.invoice_number}</p>
             {#if invoice.semester}
               <div class="flex items-center gap-2 mt-1">
-                <Badge label={`Sem ${invoice.semester}`} variant="warning" class="text-[9px] py-0.5" />
+                <Badge label={`Sem ${invoice.semester}`} variant="warning" />
                 <span class="text-[10px] text-emerald-600 font-bold">TA {invoice.academic_year_label}</span>
               </div>
             {/if}
@@ -54,7 +68,7 @@
                       onclick={(e) => { e.stopPropagation(); resumePayment!(lastPayment.snap_token!); }}
                       class="text-[10px] font-extrabold text-emerald-600 hover:text-emerald-700 underline transition-colors"
                     >
-                      Bayar Sekarang
+                      Bayar
                     </button>
                     <span class="text-slate-300 text-[10px]">|</span>
                   {/if}
@@ -74,5 +88,15 @@
         </div>
       {/each}
     </div>
+    
+    <Paginator
+      page={page}
+      limit={limit}
+      total={totalInvoices}
+      pages={totalPages}
+      label="transaksi"
+      onPageChange={(p) => page = p}
+      onLimitChange={(l) => { limit = l; page = 1; }}
+    />
   </Card>
 </div>
