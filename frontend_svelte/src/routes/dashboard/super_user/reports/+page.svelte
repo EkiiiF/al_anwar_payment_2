@@ -1,12 +1,16 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import logo from '$lib/assets/logo.png';
   import { BarChart3, Download, FileText, FileDown } from 'lucide-svelte';
-  import { superUserApi } from '$lib/api';
+  import { superUserApi, pengasuhApi } from '$lib/api';
   import { auth } from '$lib/stores/auth';
   import { formatRupiah, getHijriMonthName, HIJRI_MONTH_NAMES } from '$lib/utils';
   import { Button, Alert, Card, Badge, Select, Paginator, ConfirmDialog } from '$lib/components';
   import { toast } from '$lib/stores/toast';
   import type { Category } from '$lib/types';
+
+  const isReadOnly = $derived($auth.user?.role?.name === 'pengasuh');
+  const api = $derived(isReadOnly ? pengasuhApi : superUserApi);
 
   let filterPeriod   = $state('');
   let filterMonth    = $state('');
@@ -70,8 +74,8 @@
       };
 
       const [resReport, resInv] = await Promise.all([
-        superUserApi.getReports(reportFilters),
-        superUserApi.getInvoicesPaginated(invoiceFilters, invPage, invLimit)
+        api.getReports(reportFilters),
+        api.getInvoicesPaginated(invoiceFilters, invPage, invLimit)
       ]);
       reportData = resReport.data;
       invoices = resInv.data?.invoices ?? [];
@@ -90,7 +94,7 @@
         ...(filterYear && { year: filterYear }),
         ...(filterPeriod === 'monthly' && filterMonth && { month: filterMonth })
       };
-      const res = await superUserApi.getInvoicesPaginated(invoiceFilters, invPage, invLimit);
+      const res = await api.getInvoicesPaginated(invoiceFilters, invPage, invLimit);
       invoices = res.data?.invoices ?? [];
       invPagination = res.data?.pagination ?? null;
     } catch (e: unknown) {
@@ -109,8 +113,31 @@
     fetchInvoices();
   }
 
+  let printInvoices = $state<any[]>([]);
+
+  function calculateRunningSums(invs: any[]): number[] {
+    let sum = 0;
+    return invs.map(i => {
+      sum += Number(i.amount_due);
+      return sum;
+    });
+  }
+
+  function formatDate(dateStr: string): string {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return '-';
+    }
+  }
+
   // Reactive effect to load data when filters change
   $effect(() => {
+    if ($auth.loading || !$auth.user) {
+      return;
+    }
     // If Bulanan is selected but month is empty, wait for month selection
     if (filterPeriod === 'monthly' && !filterMonth) {
       return;
@@ -122,15 +149,33 @@
   async function executeExport() {
     showConfirmModal = false;
     if (exportType === 'pdf') {
-      await tick();
-      // Use setTimeout to allow Svelte to fully hide the ConfirmDialog before printing
-      setTimeout(() => {
-        window.print();
-      }, 150);
+      exporting = true;
+      try {
+        const invoiceFilters: Record<string, string> = {
+          status: 'paid',
+          ...(filterYear && { year: filterYear }),
+          ...(filterPeriod === 'monthly' && filterMonth && { month: filterMonth }),
+          ...(filterCategory && { category: filterCategory })
+        };
+        // Fetch ALL invoices for printing
+        const totalPaid = reportData?.paid_count ?? 1000;
+        const res = await api.getInvoicesPaginated(invoiceFilters, 1, totalPaid);
+        printInvoices = res.data?.invoices ?? [];
+
+        await tick();
+        // Allow Svelte to render the print DOM
+        setTimeout(() => {
+          window.print();
+          exporting = false;
+        }, 300);
+      } catch (e: any) {
+        toast.error('Gagal mengambil data untuk cetak: ' + (e.message || 'Error'));
+        exporting = false;
+      }
     } else {
       exporting = true;
       try {
-        await superUserApi.exportReports({
+        await api.exportReports({
           ...(filterYear && { year: filterYear }),
           ...(filterPeriod === 'monthly' && filterMonth && { month: filterMonth }),
           ...(filterCategory && { category: filterCategory }),
@@ -145,78 +190,171 @@
     }
   }
 
-  onMount(async () => {
-    try {
-      const [dashboardRes, catRes] = await Promise.all([
-        superUserApi.getDashboard(),
-        superUserApi.getCategories()
-      ]);
-      
-      if (dashboardRes.data?.available_years) {
-        availableYears = dashboardRes.data.available_years;
-      } else {
-        const currentY = 1448;
-        availableYears = [];
-        for (let y = currentY; y >= 1443; y--) {
-          availableYears.push(y);
-        }
-      }
+  let hasInitialLoaded = false;
+  $effect(() => {
+    if (!$auth.loading && $auth.user && !hasInitialLoaded) {
+      hasInitialLoaded = true;
+      (async () => {
+        try {
+          const [dashboardRes, catRes] = await Promise.all([
+            api.getDashboard(),
+            api.getCategories()
+          ]);
+          
+          if (dashboardRes.data?.available_years) {
+             availableYears = dashboardRes.data.available_years;
+          } else {
+            const currentY = 1448;
+            availableYears = [];
+            for (let y = currentY; y >= 1443; y--) {
+              availableYears.push(y);
+            }
+          }
 
-      categories = catRes.data || [];
-    } catch (e) {
-      console.error(e);
-      const currentY = 1448;
-      availableYears = [];
-      for (let y = currentY; y >= 1443; y--) {
-        availableYears.push(y);
-      }
+          categories = catRes.data || [];
+        } catch (e) {
+          console.error(e);
+          const currentY = 1448;
+          availableYears = [];
+          for (let y = currentY; y >= 1443; y--) {
+            availableYears.push(y);
+          }
+        }
+      })();
     }
   });
 </script>
 
 <svelte:head>
-  <title>Laporan Keuangan | Dashboard Super User</title>
+  <title>Laporan Keuangan | {isReadOnly ? 'Dashboard Pengasuh' : 'Dashboard Super User'}</title>
 </svelte:head>
 
 <div class="space-y-6 flex flex-col flex-1 min-h-0">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
     <div>
+      {#if isReadOnly}
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-700 text-xs font-semibold uppercase tracking-wider mb-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" aria-hidden="true"></span>
+          Mode Hanya Lihat
+        </div>
+      {/if}
       <h1 class="text-2xl font-black text-gray-900 tracking-tight">Laporan Keuangan</h1>
       <p class="text-gray-500 text-sm mt-1">Analisis pemasukan pesantren secara real-time.</p>
     </div>
   </div>
 
   <div id="print-area" class="space-y-6 flex flex-col flex-1 min-h-0">
-    <!-- Printable Header (Only visible when printing/PDF) -->
-    <div class="hidden print:block border-b border-gray-200 pb-4 mb-4">
-      <h1 class="text-2xl font-bold text-gray-900">Laporan Keuangan Pondok Pesantren Al-Anwar</h1>
-      <div class="grid grid-cols-2 gap-4 mt-4 text-xs text-gray-600">
-        <div>
-          <p><span class="font-semibold text-gray-800">Nama Laporan:</span> Laporan Pemasukan Santri (Lunas)</p>
-          <p>
-            <span class="font-semibold text-gray-800">Periode:</span> 
-            {#if filterPeriod}
-              {filterPeriod === 'monthly' ? 'Bulanan' : filterPeriod === 'quarterly' ? 'Triwulan' : filterPeriod === 'semester' ? 'Semester' : 'Tahunan'} 
-              {#if filterPeriod === 'monthly' && filterMonth}
-                - {getHijriMonthName(Number(filterMonth))}
-              {/if}
-              - {filterYear} H
-            {:else}
-              Semua Periode
+    <!-- Printable Document (Only shown in print/PDF) -->
+    <div class="hidden print:block w-full text-black font-sans leading-relaxed">
+      <!-- Kop Surat / Header Laporan -->
+      <div class="flex items-center justify-between border-b-4 border-double border-slate-900 pb-4 mb-6">
+        <div class="flex items-center gap-4 text-left">
+          <img src={logo} alt="Logo Al-Anwar" class="w-16 h-16 object-contain" />
+          <div>
+            <h2 class="text-sm font-black uppercase tracking-wider text-slate-900">PONDOK PESANTREN PUTRA - PUTRI "AL-ANWAR"</h2>
+            <p class="text-[10px] text-slate-600 leading-tight mt-1">
+              Dusun Kauman, Desa Selo, RT 05/RW 08 Kecamatan Tawangharjo Kabupaten Grobogan<br />
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Judul & Periode Laporan -->
+      <div class="text-center mb-6">
+        <h3 class="text-xs font-bold uppercase text-slate-800 tracking-wider">Laporan Realisasi Pemasukan Administrasi Keuangan</h3>
+        <p class="text-[10px] text-slate-500 mt-1">
+          Periode: 
+          {#if filterPeriod}
+            {filterPeriod === 'monthly' ? 'Bulanan' : filterPeriod === 'quarterly' ? 'Triwulan' : filterPeriod === 'semester' ? 'Semester' : 'Tahunan'} 
+            {#if filterPeriod === 'monthly' && filterMonth}
+              - {getHijriMonthName(Number(filterMonth))}
             {/if}
-          </p>
-          <p><span class="font-semibold text-gray-800">Kategori:</span> {categories.find(c => c.id === filterCategory)?.name ?? 'Semua Kategori'}</p>
+            - {filterYear} H
+          {:else}
+            Semua Periode
+          {/if}
+          {#if filterCategory}
+            | Kategori: {categories.find(c => c.id === filterCategory)?.name ?? 'Semua'}
+          {/if}
+        </p>
+      </div>
+
+      <!-- Ringkasan / Rekapitulasi Metrik -->
+      <div class="grid grid-cols-4 gap-4 mb-6 border border-slate-300 rounded-lg p-3 bg-slate-50/50">
+        <div class="text-center border-r border-slate-200">
+          <p class="text-[9px] uppercase font-bold text-slate-500">Total Tagihan</p>
+          <p class="text-xs font-extrabold text-slate-800 mt-0.5">{reportData?.total_invoices ?? 0} Tagihan</p>
+        </div>
+        <div class="text-center border-r border-slate-200">
+          <p class="text-[9px] uppercase font-bold text-slate-500">Tagihan Lunas</p>
+          <p class="text-xs font-extrabold text-emerald-700 mt-0.5">{reportData?.paid_count ?? 0} Tagihan</p>
+        </div>
+        <div class="text-center border-r border-slate-200">
+          <p class="text-[9px] uppercase font-bold text-slate-500">Belum Lunas</p>
+          <p class="text-xs font-extrabold text-amber-700 mt-0.5">{reportData?.unpaid_count ?? 0} Tagihan</p>
+        </div>
+        <div class="text-center">
+          <p class="text-[9px] uppercase font-bold text-slate-500">Total Keseluruhan</p>
+          <p class="text-xs font-extrabold text-emerald-800 mt-0.5">{formatRupiah(Number(reportData?.total_amount_paid ?? 0))}</p>
+        </div>
+      </div>
+
+      <!-- Tabel Utama Laporan Jurnal/Transaksi -->
+      <table class="w-full text-[9px] border-collapse border border-slate-300 mb-8">
+        <thead>
+          <tr class="bg-slate-800 text-white border border-slate-300">
+            <th scope="col" class="border border-slate-300 px-3 py-2 text-center w-8 font-bold">No</th>
+            <th scope="col" class="border border-slate-300 px-3 py-2 text-left w-20 font-bold">Tanggal</th>
+            <th scope="col" class="border border-slate-300 px-3 py-2 text-left w-24 font-bold">No. Referensi</th>
+            <th scope="col" class="border border-slate-300 px-3 py-2 text-left w-28 font-bold">Kategori</th>
+            <th scope="col" class="border border-slate-300 px-3 py-2 text-left font-bold">Nama Santri</th>
+            <th scope="col" class="border border-slate-300 px-3 py-2 text-right w-24 font-bold">Nominal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#if printInvoices.length > 0}
+            {#each printInvoices as i, idx}
+              <tr class="border border-slate-200 {idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}">
+                <td class="border border-slate-300 px-3 py-2 text-center">{idx + 1}</td>
+                <td class="border border-slate-300 px-3 py-2 whitespace-nowrap">{formatDate(i.created_at)}</td>
+                <td class="border border-slate-300 px-3 py-2 font-mono">{i.invoice_number}</td>
+                <td class="border border-slate-300 px-3 py-2">{i.category?.name ?? 'SPP Pesantren'}</td>
+                <td class="border border-slate-300 px-3 py-2 font-semibold text-slate-800">{i.student?.full_name ?? '-'}</td>
+                <td class="border border-slate-300 px-3 py-2 text-right text-slate-900 font-semibold">{formatRupiah(Number(i.amount_due))}</td>
+              </tr>
+            {/each}
+            <!-- Baris Total Footer -->
+            <tr class="bg-slate-100 font-bold border-t border-slate-900">
+              <td colspan="5" class="border border-slate-300 px-3 py-2.5 text-right font-extrabold text-slate-800">TOTAL KESELURUHAN</td>
+              <td class="border border-slate-300 px-3 py-2.5 text-right text-slate-900 font-extrabold underline decoration-double">{formatRupiah(Number(reportData?.total_amount_paid ?? 0))}</td>
+            </tr>
+          {:else}
+            <tr>
+              <td colspan="6" class="border border-slate-300 px-3 py-6 text-center text-slate-500">Tidak ada data untuk periode ini.</td>
+            </tr>
+          {/if}
+        </tbody>
+      </table>
+
+      <!-- Kolom Tanda Tangan -->
+      <div class="mt-8 grid grid-cols-2 gap-8 text-center text-[10px] avoid-break">
+        <div>
+          <p class="text-slate-500">Mengetahui,</p>
+          <p class="font-bold text-slate-800 uppercase mt-0.5">Pengasuh Pondok Pesantren</p>
+          <div class="h-16"></div> 
+          <div class="mx-auto w-48 border-b border-slate-800 font-bold"></div>
         </div>
         <div>
-          <p><span class="font-semibold text-gray-800">Pengekspor:</span> {exporterName} ({$auth.user?.role?.description ?? ($auth.user?.role?.name === 'super_user' ? 'Super User/Bendahara' : 'Pengasuh')})</p>
-          <p><span class="font-semibold text-gray-800">Waktu Ekspor:</span> {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</p>
-          <p><span class="font-semibold text-gray-800">Total Pemasukan:</span> {formatRupiah(Number(reportData?.total_amount_paid ?? 0))}</p>
+          <p class="text-slate-500">Grobogan, {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+          <p class="font-bold text-slate-800 uppercase mt-0.5">Bendahara</p>
+          <div class="h-16"></div>
+          <div class="mx-auto w-48 border-b border-slate-800 font-bold"></div>
         </div>
       </div>
     </div>
 
     {#if reportData}
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
         {#each [
           { key: 'total_invoices',    label: 'Total Tagihan',     suffix: 'tagihan' },
           { key: 'paid_count',        label: 'Lunas',            suffix: 'tagihan' },
@@ -253,7 +391,7 @@
       <Alert type="error" message={error} class="no-print" />
     {/if}
 
-    <Card padding={false} class="flex-1 flex flex-col min-h-0">
+    <Card padding={false} class="flex-1 flex flex-col min-h-0 no-print">
       <div class="p-5 border-b border-gray-100 space-y-4 no-print">
         <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 flex-1">
@@ -271,7 +409,7 @@
                 <select
                   id="filter-year"
                   bind:value={filterYear}
-                  class="w-full pl-3 pr-8 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all appearance-none cursor-pointer"
+                  class="w-full pl-3 pr-8 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 {isReadOnly ? 'focus:ring-purple-500/20 focus:border-purple-500' : 'focus:ring-green-500/20 focus:border-green-500'} transition-all appearance-none cursor-pointer"
                 >
                   <option value="">Pilih Tahun...</option>
                   {#each availableYears as yr}
@@ -295,7 +433,7 @@
               <button 
                 onclick={() => showExportDropdown = !showExportDropdown}
                 disabled={exporting}
-                class="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                class="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 {isReadOnly ? 'focus:ring-purple-500/20 focus:border-purple-500' : 'focus:ring-green-500/20 focus:border-green-500'} transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Download size={16} />
                 <span>Ekspor Laporan</span>
@@ -334,7 +472,7 @@
 
       {#if loading && invoices.length === 0}
         <div class="py-16 flex justify-center items-center">
-          <div class="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          <div class="w-8 h-8 border-4 {isReadOnly ? 'border-purple-500' : 'border-green-500'} border-t-transparent rounded-full animate-spin"></div>
         </div>
       {:else if invoices.length > 0}
         <div class="overflow-x-auto flex-1">
@@ -351,7 +489,7 @@
             <tbody class="divide-y divide-gray-100">
               {#each invoices as i}
                 <tr class="hover:bg-gray-50 transition-colors">
-                  <td class="px-5 py-3 font-mono text-xs text-green-600">{String(i.invoice_number)}</td>
+                  <td class="px-5 py-3 font-mono text-xs {isReadOnly ? 'text-purple-600' : 'text-green-600'}">{String(i.invoice_number)}</td>
                   <td class="px-5 py-3 text-gray-900">{String(i.student?.full_name ?? '-')}</td>
                   <td class="px-5 py-3 text-gray-500">{getHijriMonthName(Number(i.hijri_month))} {i.hijri_year} H</td>
                   <td class="px-5 py-3 text-right font-bold text-gray-900">{formatRupiah(Number(i.amount_due))}</td>
@@ -395,26 +533,3 @@
   variant="info"
   onConfirm={executeExport}
 />
-
-<style>
-  @media print {
-    /* Hide everything except the print-area container */
-    body * {
-      visibility: hidden;
-    }
-    #print-area, #print-area * {
-      visibility: visible;
-    }
-    #print-area {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      background: white;
-    }
-    .no-print {
-      display: none !important;
-      visibility: hidden !important;
-    }
-  }
-</style>

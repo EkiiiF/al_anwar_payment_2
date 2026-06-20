@@ -1,12 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { UserPlus, Edit, Trash2, Search, Power, ChevronDown, ChevronUp, MapPin, Phone, Mail, User } from 'lucide-svelte';
-  import { superUserApi } from '$lib/api';
+  import { superUserApi, pengasuhApi } from '$lib/api';
+  import { auth } from '$lib/stores/auth';
   import { formatRupiah, formatDate } from '$lib/utils';
   import { Button, Alert, Spinner, Modal, Input, Select, Badge, Card, DataTable, ConfirmDialog } from '$lib/components';
   import type { Student, Category, StudentStatusType } from '$lib/types';
   import { getMuhadhorohLabel, MUHADHOROH_OPTIONS, GUARDIAN_RELATION_OPTIONS } from '$lib/types/student.types';
   import { toast } from '$lib/stores/toast';
+
+  const isReadOnly = $derived($auth.user?.role?.name === 'pengasuh');
+  const api = $derived(isReadOnly ? pengasuhApi : superUserApi);
 
   let students   = $state<Student[]>([]);
   let statuses   = $state<StudentStatusType[]>([]);
@@ -102,15 +106,21 @@
     loading = true;
     error = '';
     try {
-      const [resStdPag, resStat, resCat] = await Promise.all([
-        superUserApi.getStudentsPaginated(search, page, limit),
-        superUserApi.getStatusTypes(),
-        superUserApi.getCategories()
-      ]);
-      students   = resStdPag.data?.students ?? [];
-      pagination = resStdPag.data?.pagination ?? null;
-      statuses   = resStat.data  ?? [];
-      categories = resCat.data   ?? [];
+      if (isReadOnly) {
+        const resStdPag = await api.getStudentsPaginated(search, page, limit);
+        students   = resStdPag.data?.students ?? [];
+        pagination = resStdPag.data?.pagination ?? null;
+      } else {
+        const [resStdPag, resStat, resCat] = await Promise.all([
+          api.getStudentsPaginated(search, page, limit),
+          superUserApi.getStatusTypes(),
+          superUserApi.getCategories()
+        ]);
+        students   = resStdPag.data?.students ?? [];
+        pagination = resStdPag.data?.pagination ?? null;
+        statuses   = resStat.data  ?? [];
+        categories = resCat.data   ?? [];
+      }
     } catch (e: unknown) {
       error = e instanceof Error ? e.message : 'Gagal memuat data.';
     } finally {
@@ -129,7 +139,13 @@
     fetchData();
   }
 
-  onMount(fetchData);
+  let hasInitialLoaded = false;
+  $effect(() => {
+    if (!$auth.loading && $auth.user && !hasInitialLoaded) {
+      hasInitialLoaded = true;
+      fetchData();
+    }
+  });
 
   function resetForm() {
     currentId = ''; isEditing = false; modalError = '';
@@ -337,13 +353,19 @@
 </script>
 
 <svelte:head>
-  <title>Data Santri | Dashboard Super User</title>
+  <title>Data Santri | {isReadOnly ? 'Dashboard Pengasuh' : 'Dashboard Super User'}</title>
   <meta name="description" content="Manajemen data santri lengkap dengan kelas Muhadhoroh, semester, dan guardian." />
 </svelte:head>
 
 <div class="space-y-6 flex flex-col flex-1 min-h-0">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
+      {#if isReadOnly}
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-700 text-xs font-semibold uppercase tracking-wider mb-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" aria-hidden="true"></span>
+          Mode Hanya Lihat
+        </div>
+      {/if}
       <h1 class="text-2xl font-black text-gray-900 tracking-tight">Data Santri</h1>
       <p class="text-gray-500 text-sm mt-1">Kelola informasi data santri.</p>
     </div>
@@ -353,17 +375,19 @@
         <input
           type="text"
           placeholder="Cari santri berdasarkan nama atau NIS..."
-          class="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm bg-white"
+          class="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 {isReadOnly ? 'focus:ring-purple-500 focus:border-purple-500' : 'focus:ring-green-500 focus:border-green-500'} transition-all text-sm bg-white"
           bind:value={search}
           oninput={handleSearch}
         />
       </div>
-      <Button onclick={openAdd} variant="primary" size="md" class="shrink-0">
-        {#snippet children()}
-          <UserPlus size={16} aria-hidden="true" />
-          <span class="whitespace-nowrap">Tambah Santri</span>
-        {/snippet}
-      </Button>
+      {#if !isReadOnly}
+        <Button onclick={openAdd} variant="primary" size="md" class="shrink-0">
+          {#snippet children()}
+            <UserPlus size={16} aria-hidden="true" />
+            <span class="whitespace-nowrap">Tambah Santri</span>
+          {/snippet}
+        </Button>
+      {/if}
     </div>
   </div>
 
@@ -398,7 +422,7 @@
           <tbody class="divide-y divide-gray-100 whitespace-nowrap">
             {#each students as student (student.id)}
               <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick={() => toggleExpand(student.id)}>
-                <td class="px-5 py-4 font-mono text-green-600 font-semibold text-xs">{student.student_number}</td>
+                <td class="px-5 py-4 font-mono {isReadOnly ? 'text-purple-600' : 'text-green-600'} font-semibold text-xs">{student.student_number}</td>
                 <td class="px-5 py-4">
                   <p class="font-semibold text-gray-900">
                     {[student.name.first_name, student.name.middle_name, student.name.last_name].filter(Boolean).join(' ')}
@@ -413,7 +437,7 @@
                   {:else}
                     <div class="inline-block align-middle">
                       <p class="text-sm font-bold text-gray-900">Muhadhoroh {student.muhadhoroh_level}</p>
-                      <p class="text-xs text-emerald-600 font-semibold">Semester {student.current_semester}</p>
+                      <p class="text-xs {isReadOnly ? 'text-purple-600' : 'text-emerald-600'} font-semibold">Semester {student.current_semester}</p>
                     </div>
                   {/if}
                 </td>
@@ -447,27 +471,29 @@
                         <ChevronDown size={15} />
                       {/if}
                     </button>
-                    <button
-                      onclick={(e) => { e.stopPropagation(); toggleStudentStatus(student.id); }}
-                      class="p-2 rounded-lg {student.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'} border transition-colors"
-                      title={student.is_active ? 'Nonaktifkan Santri' : 'Aktifkan Santri'}
-                    >
-                      <Power size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                      onclick={(e) => { e.stopPropagation(); openEdit(student); }}
-                      class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-colors"
-                      aria-label="Edit santri"
-                    >
-                      <Edit size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                      onclick={(e) => { e.stopPropagation(); handleDelete(student.id, [student.name.first_name, student.name.last_name].join(' ')); }}
-                      class="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors"
-                      aria-label="Hapus santri"
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
-                    </button>
+                    {#if !isReadOnly}
+                      <button
+                        onclick={(e) => { e.stopPropagation(); toggleStudentStatus(student.id); }}
+                        class="p-2 rounded-lg {student.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'} border transition-colors"
+                        title={student.is_active ? 'Nonaktifkan Santri' : 'Aktifkan Santri'}
+                      >
+                        <Power size={15} aria-hidden="true" />
+                      </button>
+                      <button
+                        onclick={(e) => { e.stopPropagation(); openEdit(student); }}
+                        class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-colors"
+                        aria-label="Edit santri"
+                      >
+                        <Edit size={15} aria-hidden="true" />
+                      </button>
+                      <button
+                        onclick={(e) => { e.stopPropagation(); handleDelete(student.id, [student.name.first_name, student.name.last_name].join(' ')); }}
+                        class="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors"
+                        aria-label="Hapus santri"
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                      </button>
+                    {/if}
                   </div>
                 </td>
               </tr>
@@ -484,7 +510,7 @@
                           <div class="flex justify-between"><span class="text-gray-500">NIK</span><span class="font-semibold text-gray-900">{student.nik || '-'}</span></div>
                           <div class="flex justify-between"><span class="text-gray-500">Tgl Lahir</span><span class="font-semibold text-gray-900">{student.birth_date ? formatDate(student.birth_date) : '-'}</span></div>
                           <div class="flex justify-between"><span class="text-gray-500">Jenis Kelamin</span><span class="font-semibold text-gray-900">{student.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</span></div>
-                          <div class="flex justify-between"><span class="text-gray-500">Kelas</span><span class="font-bold text-emerald-700">{getMuhadhorohLabel(student.muhadhoroh_level, student.current_semester)}</span></div>
+                          <div class="flex justify-between"><span class="text-gray-500">Kelas</span><span class="font-bold {isReadOnly ? 'text-purple-700' : 'text-emerald-700'}">{getMuhadhorohLabel(student.muhadhoroh_level, student.current_semester)}</span></div>
                           <div class="flex justify-between"><span class="text-gray-500">Status</span><span class="font-semibold">{student.status?.name ?? '-'}</span></div>
                           <div class="flex justify-between"><span class="text-gray-500">Diskon</span><span class="font-semibold text-purple-700">{student.status?.discount_percentage ?? 0}%</span></div>
                           
@@ -493,7 +519,7 @@
                             <div class="flex flex-wrap gap-1">
                               {#if student.billing_categories && student.billing_categories.length > 0}
                                 {#each student.billing_categories as bc}
-                                  <span class="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                                  <span class="{isReadOnly ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-green-50 text-green-700 border-green-200'} border px-2 py-0.5 rounded-full font-bold text-[10px]">
                                     {bc.name}
                                   </span>
                                 {/each}

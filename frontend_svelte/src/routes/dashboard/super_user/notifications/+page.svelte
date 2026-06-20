@@ -91,7 +91,6 @@
                 <Badge
                   label={getTypeVariant(notif.title) === 'success' ? 'Pembayaran' : 'Sistem'}
                   variant={getTypeVariant(notif.title)}
-                  class="text-xs py-0.5"
                 />
               </div>
               <p class="text-slate-600 text-sm mt-1 leading-relaxed">{notif.message}</p>

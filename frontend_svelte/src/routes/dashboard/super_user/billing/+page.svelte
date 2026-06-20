@@ -579,7 +579,7 @@
           class="px-8"
         >
           {#snippet children()}
-            {feedbackType === 'success' ? 'Selesai' : 'Mengerti'}
+          {feedbackType === 'success' ? 'Selesai' : 'Mengerti'}
           {/snippet}
         </Button>
       </div>

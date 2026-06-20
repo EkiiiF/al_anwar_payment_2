@@ -249,3 +249,160 @@ body {
 .billing-panel-wrapper--open .billing-panel-inner {
   overflow: visible;
 }
+
+/* ============================================================
+   LANDING PAGE MARQUEE & MODERN ANIMATED GRADIENTS
+   ============================================================ */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-33.3333%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 25s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.mask-gradient {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+/* Animated Modern Gradient Blobs */
+.gradient-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+  animation: float-gradient 20s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+
+.gradient-blob-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(209, 250, 229, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
+  top: -200px;
+  left: -100px;
+  animation-duration: 22s;
+}
+
+.gradient-blob-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.18) 0%, rgba(204, 251, 241, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
+  top: 10%;
+  right: -150px;
+  animation-duration: 28s;
+  animation-delay: -7s;
+}
+
+.gradient-blob-3 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(219, 234, 254, 0.04) 50%, rgba(255, 255, 255, 0) 100%);
+  bottom: -200px;
+  left: 20%;
+  animation-duration: 26s;
+  animation-delay: -14s;
+}
+
+@keyframes float-gradient {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(50px, -30px) scale(1.08) rotate(120deg);
+  }
+  66% {
+    transform: translate(-30px, 40px) scale(0.92) rotate(240deg);
+  }
+  100% {
+    transform: translate(0, 0) scale(1) rotate(360deg);
+  }
+}
+
+/* Animated text gradient */
+.gradient-text {
+  background: linear-gradient(135deg, #065f46 0%, #0d9488 50%, #2563eb 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shine 6s linear infinite;
+}
+
+@keyframes text-shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* ============================================================
+   PRINT STYLING
+   ============================================================ */
+@media print {
+  @page {
+    size: portrait;
+    margin: 15mm 12mm 15mm 12mm;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide everything except the print-area container */
+  body * {
+    visibility: hidden;
+  }
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+  }
+  
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+  
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto;
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tfoot {
+    display: table-footer-group;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

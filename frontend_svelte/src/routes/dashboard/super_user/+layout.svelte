@@ -20,8 +20,8 @@
     }
   });
 
-  const userName = $derived([$auth.user?.user_profile?.first_name, $auth.user?.user_profile?.last_name].filter(Boolean).join(' ') || $auth.user?.username || '');
-  const userEmail = $derived($auth.user?.user_profile?.email ?? '');
+  const userName = $derived([$auth.user?.first_name, $auth.user?.last_name].filter(Boolean).join(' ') || $auth.user?.username || '');
+  const userEmail = $derived($auth.user?.email ?? '');
 
   const menuItems = [
     { name: 'Dashboard',     path: '/dashboard/super_user',               icon: LayoutDashboard },

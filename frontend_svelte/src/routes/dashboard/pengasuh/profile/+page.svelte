@@ -2,4 +2,4 @@
   import Profile from '$lib/components/shared/Profile.svelte';
 </script>
 
-<Profile roleLabel="Pengasuh" roleColor="purple" />
+<Profile roleLabel="Pengasuh" roleColor="teal" />

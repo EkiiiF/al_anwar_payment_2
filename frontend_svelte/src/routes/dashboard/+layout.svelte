@@ -28,9 +28,9 @@
         const res = await fetch('/api/auth/session');
         if (res.ok) {
           const session = await res.json();
-          token = session.token;
-          tokenStore.set(token);
-        }
+            token = session.token;
+            tokenStore.set(token);
+          }
       } catch (e) {
         console.error('Gagal restorasi sesi:', e);
       }
