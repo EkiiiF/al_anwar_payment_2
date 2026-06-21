@@ -12,7 +12,7 @@
     roleColor = 'green'
   }: {
     roleLabel?: string;
-    roleColor?: 'green' | 'blue' | 'purple';
+    roleColor?: 'green' | 'blue' | 'purple' | 'teal';
   } = $props();
 
   let user         = $state<UserType | null>(null);
@@ -181,7 +181,8 @@
   const avatarColors = {
     green:  'from-green-500 to-green-700',
     blue:   'from-blue-500 to-blue-700',
-    purple: 'from-purple-500 to-purple-700'
+    purple: 'from-purple-500 to-purple-700',
+    teal:   'from-teal-500 to-teal-700'
   };
 
   onMount(async () => {
@@ -307,17 +308,17 @@
     </div>
 
     <!-- Detail Profil Pengguna Section (Visible only for Super User and Pengasuh) -->
-    {#if roleColor === 'green' || roleColor === 'purple'}
+    {#if roleColor === 'green' || roleColor === 'purple' || roleColor === 'teal'}
       <div class="py-5 border-b border-slate-100">
         <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
           <div class="flex items-center gap-3">
-            <User size={20} class={roleColor === 'green' ? 'text-green-600' : 'text-purple-600'} aria-hidden="true" />
+            <User size={20} class={roleColor === 'green' ? 'text-green-600' : roleColor === 'teal' ? 'text-teal-600' : 'text-purple-600'} aria-hidden="true" />
             <div>
               <h3 class="font-black text-gray-900 text-lg">Informasi Profil Lengkap</h3>
               <p class="text-gray-500 text-xs mt-0.5">Detail data diri akun Anda yang terdaftar di sistem.</p>
             </div>
           </div>
-          {#if !isEditing && (roleColor === 'green' || roleColor === 'purple')}
+          {#if !isEditing && (roleColor === 'green' || roleColor === 'purple' || roleColor === 'teal')}
             <Button onclick={startEdit} variant="outline" size="sm">
               {#snippet children()}
                 <Edit size={14} aria-hidden="true" />
@@ -494,7 +495,7 @@
                   <span class="text-xs font-semibold text-slate-500 block uppercase tracking-wider mb-1">Hak Akses</span>
                   <Badge 
                     label={roleLabel} 
-                    variant={roleColor === 'green' ? 'success' : 'purple'} 
+                    variant={roleColor === 'green' ? 'success' : roleColor === 'teal' ? 'info' : 'purple'} 
                   />
                 </div>
               </div>
