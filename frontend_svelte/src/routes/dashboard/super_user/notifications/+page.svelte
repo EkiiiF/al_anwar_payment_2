@@ -119,25 +119,25 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        <span>Kembali ke Daftar Notifikasi</span>
+        <span>Kembali</span>
       </button>
 
       <div class="py-4 space-y-4">
         <div class="flex items-center gap-3">
-          <div class="p-3 rounded-xl border
+          <div class="p-2 rounded-lg border
             {getTypeVariant(activeNotif.title) === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
              getTypeVariant(activeNotif.title) === 'warning' ? 'bg-amber-50 border-amber-100 text-amber-700' :
              'bg-blue-50 border-blue-100 text-blue-700'}">
-            <Bell size={24} aria-hidden="true" />
+            <Bell size={18} aria-hidden="true" />
           </div>
           <div>
-            <h2 class="text-xl font-extrabold text-slate-900">{activeNotif.title}</h2>
-            <p class="text-xs text-slate-400 mt-1">{formatDate(activeNotif.created_at, true)}</p>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">{activeNotif.title}</h2>
+            <p class="text-[10px] text-slate-400 mt-0.5">{formatDate(activeNotif.created_at, true)}</p>
           </div>
         </div>
 
         <div class="pt-4 border-t border-slate-100">
-          <p class="text-slate-700 text-base leading-relaxed whitespace-pre-wrap">{activeNotif.message}</p>
+          <p class="text-slate-500 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{activeNotif.message}</p>
         </div>
       </div>
     </div>

@@ -31,8 +31,8 @@
 
   <div class="space-y-4">
     <div class="rounded-2xl p-4 border transition-all duration-300 shadow-sm hover:shadow-md {autoBillingEnabled ? 'bg-emerald-50/30 border-emerald-200/80' : 'bg-slate-50/50 border-slate-200'}">
-      <div class="flex items-center justify-between mb-4">
-        <div>
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <div class="flex-1 min-w-0">
           <p class="text-sm font-bold {autoBillingEnabled ? 'text-emerald-900' : 'text-slate-900'}">Auto Billing Syahriyyah</p>
           <p class="text-xs {autoBillingEnabled ? 'text-emerald-700/80' : 'text-slate-500'} mt-0.5 font-medium">Tagihan bulanan dibuat otomatis tiap awal bulan Hijriah.</p>
         </div>
@@ -42,7 +42,7 @@
           disabled={settingLoading}
           aria-label="Toggle Auto Billing Syahriyyah"
           title="Toggle Auto Billing Syahriyyah"
-          class="relative inline-flex h-6.5 w-12 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:ring-offset-2
+          class="relative inline-flex h-6.5 w-12 flex-shrink-0 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:ring-offset-2
                  {autoBillingEnabled ? 'bg-emerald-600 shadow-inner' : 'bg-slate-300'}"
         >
           <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200
@@ -66,16 +66,16 @@
               {/each}
             </select>
           </div>
-          <div class="flex-1 text-[11px] {autoBillingEnabled ? 'text-emerald-800/90' : 'text-slate-500'} leading-relaxed md:border-l {autoBillingEnabled ? 'border-emerald-100' : 'border-slate-200'} md:pl-4">
+          <!-- <div class="flex-1 text-[11px] {autoBillingEnabled ? 'text-emerald-800/90' : 'text-slate-500'} leading-relaxed md:border-l {autoBillingEnabled ? 'border-emerald-100' : 'border-slate-200'} md:pl-4">
             <span class="font-bold {autoBillingEnabled ? 'text-emerald-900' : 'text-slate-800'} block mb-0.5">Sistem Notifikasi H-5:</span>
             Wali santri otomatis menerima notifikasi pengingat tepat 5 hari sebelum tanggal tagihan di atas. Bulan & tahun dinamis mengikuti bulan berjalan.
-          </div>
+          </div> -->
         </div>
       </div>
     </div>
 
-    <div class="rounded-2xl p-4 border transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-between {autoSemesterBillingEnabled ? 'bg-blue-50/30 border-blue-200/80' : 'bg-slate-50/50 border-slate-200'}">
-      <div>
+    <div class="rounded-2xl p-4 border transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-between gap-4 {autoSemesterBillingEnabled ? 'bg-blue-50/30 border-blue-200/80' : 'bg-slate-50/50 border-slate-200'}">
+      <div class="flex-1 min-w-0">
         <p class="text-sm font-bold {autoSemesterBillingEnabled ? 'text-blue-900' : 'text-slate-900'}">Auto Billing Semester</p>
         <p class="text-xs {autoSemesterBillingEnabled ? 'text-blue-700/80' : 'text-slate-500'} mt-0.5 font-medium">Tagihan semester (ngaji/sekolah) diterbitkan otomatis di bulan Syawal & Rabi'ul Akhir.</p>
       </div>
@@ -85,7 +85,7 @@
         disabled={settingLoading}
         aria-label="Toggle Auto Billing Semester"
         title="Toggle Auto Billing Semester"
-        class="relative inline-flex h-6.5 w-12 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:ring-offset-2
+        class="relative inline-flex h-6.5 w-12 flex-shrink-0 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:ring-offset-2
                {autoSemesterBillingEnabled ? 'bg-blue-600 shadow-inner' : 'bg-slate-300'}"
       >
         <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200

@@ -377,28 +377,6 @@
             </div>
           {/if}
         </div>
-
-        {#if !isReadOnly}
-          <div class="border border-slate-200/80 rounded-xl bg-white p-5">
-            <h3 class="text-sm font-semibold text-slate-900 mb-3">Aksi Cepat</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <a
-                href="/dashboard/super_user/billing"
-                class="group flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 text-sm font-medium text-emerald-800 transition-colors duration-200"
-              >
-                Buat Tagihan
-                <ArrowUpRight size={14} class="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </a>
-              <a
-                href="/dashboard/super_user/students"
-                class="group flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors duration-200"
-              >
-                Data Santri
-                <ArrowUpRight size={14} class="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </a>
-            </div>
-          </div>
-        {/if}
       </div>
     </div>
   {/if}

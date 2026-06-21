@@ -384,7 +384,7 @@
         <Button onclick={openAdd} variant="primary" size="md" class="shrink-0">
           {#snippet children()}
             <UserPlus size={16} aria-hidden="true" />
-            <span class="whitespace-nowrap">Tambah Santri</span>
+            <span class="whitespace-nowrap">Tambah</span>
           {/snippet}
         </Button>
       {/if}
@@ -404,7 +404,7 @@
       onLimitChange={handleLimitChange}
       isEmpty={students.length === 0}
       emptyTitle="Belum ada data santri"
-      emptyDescription="Klik tombol 'Tambah Santri' untuk mendaftarkan santri baru."
+      emptyDescription="Klik tombol 'Tambah' untuk mendaftarkan santri baru."
       paginationLabel="santri"
     >
       {#snippet children()}

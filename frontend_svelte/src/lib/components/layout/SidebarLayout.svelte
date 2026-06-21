@@ -87,12 +87,6 @@
           <p class="text-xs text-slate-500 truncate">Pondok Pesantren</p>
         </div>
       </div>
-      <div class="mt-3">
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium {rc.badge}">
-          <span class="w-1.5 h-1.5 rounded-full {rc.dot}"></span>
-          {roleLabel}
-        </span>
-      </div>
     </div>
 
     <!-- Navigation -->
@@ -144,7 +138,7 @@
         class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors duration-200"
       >
         <LogOut size={17} aria-hidden="true" />
-        Keluar Sistem
+        Keluar
       </button>
     </div>
   </aside>
@@ -166,9 +160,6 @@
           <Menu size={22} aria-hidden="true" />
         {/if}
       </button>
-
-      <!-- Judul di tengah -->
-      <p class="text-sm font-semibold text-slate-900">{roleLabel}</p>
 
       <!-- Notif Bell KANAN -->
       <div class="w-10 flex justify-end">
@@ -207,14 +198,6 @@
         >
           <X size={18} aria-hidden="true" />
         </button>
-      </div>
-
-      <!-- Role badge -->
-      <div class="px-4 py-2 border-b border-slate-100">
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium {rc.badge}">
-          <span class="w-1.5 h-1.5 rounded-full {rc.dot}"></span>
-          {roleLabel}
-        </span>
       </div>
 
       <!-- Nav items -->
@@ -262,7 +245,7 @@
           class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors duration-200"
         >
           <LogOut size={17} aria-hidden="true" />
-          Keluar Sistem
+          Keluar
         </button>
       </div>
     </aside>
