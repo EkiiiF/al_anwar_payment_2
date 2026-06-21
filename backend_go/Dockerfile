@@ -16,7 +16,6 @@ WORKDIR /app
 RUN adduser -D -u 1001 appuser
 USER appuser
 COPY --from=builder /app/main .
-COPY --from=builder /app/.env .
 # Port sesuai konfigurasi Fiber
 EXPOSE 8080
 ENTRYPOINT ["./main"]

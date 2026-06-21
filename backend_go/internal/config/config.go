@@ -2,6 +2,9 @@
 package config
 
 import (
+	"os"
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
@@ -33,8 +36,10 @@ func NewConfig() *Config {
 	viper.SetDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173")
 	viper.SetDefault("APP_PORT", "3000")
 
-	if err := viper.ReadInConfig(); err != nil {
-		panic("cannot read .env file: " + err.Error())
+	if _, err := os.Stat(".env"); err == nil {
+		if err := viper.ReadInConfig(); err != nil {
+			panic("cannot read config file: " + err.Error())
+		}
 	}
 	return &Config{
 		AppName:           viper.GetString("APP_NAME"),
@@ -48,8 +53,8 @@ func NewConfig() *Config {
 		DBUser:            viper.GetString("DB_USER"),
 		DBPass:            viper.GetString("DB_PASS"),
 		CORSOrigins:       viper.GetString("CORS_ORIGINS"),
-		MidtransServerKey: viper.GetString("MIDTRANS_SERVER_KEY"),
-		MidtransClientKey: viper.GetString("MIDTRANS_CLIENT_KEY"),
+		MidtransServerKey: strings.TrimSpace(viper.GetString("MIDTRANS_SERVER_KEY")),
+		MidtransClientKey: strings.TrimSpace(viper.GetString("MIDTRANS_CLIENT_KEY")),
 		MidtransIsProd:    viper.GetBool("MIDTRANS_IS_PRODUCTION"),
 		ServerPort:        viper.GetString("SERVER_PORT"),
 		JWTSecret:         viper.GetString("JWT_SECRET"),

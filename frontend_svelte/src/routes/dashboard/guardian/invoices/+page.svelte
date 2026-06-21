@@ -105,6 +105,23 @@
   }
 
   onMount(async () => {
+    const clientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '';
+    const isProd = clientKey.startsWith('Mid-client-');
+    const snapUrl = isProd 
+      ? 'https://app.midtrans.com/snap/snap.js' 
+      : 'https://app.sandbox.midtrans.com/snap/snap.js';
+      
+    type SnapWindow = Window & typeof globalThis & {
+      snap?: unknown;
+    };
+    const w = window as SnapWindow;
+    if (!w.snap) {
+      const script = document.createElement('script');
+      script.src = snapUrl;
+      script.setAttribute('data-client-key', clientKey);
+      document.head.appendChild(script);
+    }
+
     try {
       const res = await guardianApi.getInvoices();
       invoices = res.data ?? [];
@@ -122,6 +139,38 @@
     showConfirmPay = true;
   }
 
+  function loadSnapScript(isSandbox: boolean): Promise<void> {
+    return new Promise((resolve, reject) => {
+      type SnapWindow = Window & typeof globalThis & {
+        snap?: { pay: (token: string, options: Record<string, unknown>) => void }
+      };
+      const w = window as SnapWindow;
+      
+      const clientKey = import.meta.env.PUBLIC_MIDTRANS_CLIENT_KEY || '';
+      const snapUrl = isSandbox 
+        ? 'https://app.sandbox.midtrans.com/snap/snap.js' 
+        : 'https://app.midtrans.com/snap/snap.js';
+        
+      const existing = document.querySelector('script[src*="midtrans.com/snap/snap.js"]');
+      if (existing) {
+        const currentSrc = existing.getAttribute('src') || '';
+        if (currentSrc.includes('sandbox') === isSandbox && w.snap) {
+          resolve();
+          return;
+        }
+        existing.remove();
+        if (w.snap) delete w.snap;
+      }
+      
+      const script = document.createElement('script');
+      script.src = snapUrl;
+      script.setAttribute('data-client-key', clientKey);
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Gagal memuat skrip pembayaran Midtrans. Silakan coba lagi.'));
+      document.head.appendChild(script);
+    });
+  }
+
   async function executeCheckout() {
     showConfirmPay = false;
     paying   = true;
@@ -129,6 +178,16 @@
     try {
       const res = await guardianApi.createPayment([...selectedIds]);
       const snapToken = res.data.token;
+      const redirectUrl = res.data.redirect_url || '';
+      const isSandbox = redirectUrl.includes('sandbox');
+
+      try {
+        await loadSnapScript(isSandbox);
+      } catch (e: any) {
+        payError = e.message;
+        paying = false;
+        return;
+      }
 
       type SnapWindow = Window & typeof globalThis & {
         snap?: { pay: (token: string, options: Record<string, unknown>) => void }
@@ -193,7 +252,6 @@
 
 <svelte:head>
   <title>Tagihan Saya | Guardian - Al-Anwar Payment</title>
-  <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key={import.meta.env.VITE_MIDTRANS_CLIENT_KEY}></script>
 </svelte:head>
 
 <div class="space-y-6">

@@ -43,6 +43,7 @@
   let billingHijriYear           = $state('0');
   let settingLoading             = $state(false);
   let showBillingPanel           = $state(true);
+  let midtransEnvironment        = $state('sandbox');
 
   // Custom Modal Confirmation & Notification States
   let showConfirmModal           = $state(false);
@@ -119,9 +120,11 @@
       const hijriDay = settings.find(s => s.key === 'billing_hijri_day');
       if (hijriDay) billingHijriDay = hijriDay.value;
       const hijriMonth = settings.find(s => s.key === 'billing_hijri_month');
-      if (hijriMonth) billingHijriMonth = hijriMonth.value;
+      if (billingHijriMonth) billingHijriMonth = hijriMonth.value;
       const hijriYear = settings.find(s => s.key === 'billing_hijri_year');
       if (hijriYear) billingHijriYear = hijriYear.value;
+      const midtransEnv = settings.find(s => s.key === 'midtrans_environment');
+      if (midtransEnv) midtransEnvironment = midtransEnv.value;
     } catch (e) { console.error('Gagal memuat setting', e); }
   }
 
@@ -326,6 +329,21 @@
       settingLoading = false;
     }
   }
+
+  async function toggleMidtransEnv() {
+    settingLoading = true;
+    try {
+      const nextValue = midtransEnvironment === 'sandbox' ? 'production' : 'sandbox';
+      await superUserApi.updateSetting('midtrans_environment', nextValue);
+      midtransEnvironment = nextValue;
+      toast.success(`Mode Midtrans berhasil diubah ke ${nextValue === 'production' ? 'Live' : 'Sandbox'}.`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Gagal mengubah mode Midtrans.';
+      toast.error(msg);
+    } finally {
+      settingLoading = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -382,9 +400,11 @@
           bind:autoBillingEnabled={autoBillingEnabled}
           bind:autoSemesterBillingEnabled={autoSemesterBillingEnabled}
           bind:billingHijriDay={billingHijriDay}
+          bind:midtransEnvironment={midtransEnvironment}
           settingLoading={settingLoading}
           onToggle={toggleSetting}
           onDayChange={() => updateHijriSetting('billing_hijri_day', billingHijriDay)}
+          onMidtransToggle={toggleMidtransEnv}
         />
       </div>
     </div>

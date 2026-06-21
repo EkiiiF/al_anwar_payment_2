@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -339,7 +340,10 @@ func (s *SuperUserServiceImpl) CreateStudent(ctx context.Context, req request.Cr
 
 			rawPassword := req.GuardianPassword
 			if rawPassword == "" {
-				rawPassword = "password123"
+				rawPassword = os.Getenv("GUARDIAN_DEFAULT_PASSWORD")
+				if rawPassword == "" {
+					rawPassword = "password123"
+				}
 			}
 
 			hashedPassword, err := utils.HashPassword(rawPassword)

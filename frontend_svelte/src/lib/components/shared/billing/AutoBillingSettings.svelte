@@ -1,35 +1,40 @@
 <script lang="ts">
-  import { Calendar } from 'lucide-svelte';
+  import { Calendar, Settings } from 'lucide-svelte';
 
   let {
     autoBillingEnabled = $bindable(false),
     autoSemesterBillingEnabled = $bindable(false),
     billingHijriDay = $bindable('1'),
+    midtransEnvironment = $bindable('sandbox'),
     settingLoading = false,
     onToggle,
-    onDayChange
+    onDayChange,
+    onMidtransToggle
   }: {
     autoBillingEnabled: boolean;
     autoSemesterBillingEnabled: boolean;
     billingHijriDay: string;
+    midtransEnvironment: string;
     settingLoading: boolean;
     onToggle: (key: string) => void;
     onDayChange: () => void;
+    onMidtransToggle: () => void;
   } = $props();
 </script>
 
 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 hover:shadow-md transition-all duration-200">
   <div class="flex items-start gap-4 mb-5">
     <div class="p-3 rounded-xl bg-blue-50 border border-blue-100 flex-shrink-0">
-      <Calendar size={22} class="text-blue-700" />
+      <Settings size={22} class="text-blue-700" />
     </div>
     <div class="flex-1 min-w-0">
-      <h2 class="font-extrabold text-slate-900 text-lg">Jadwal Auto Billing</h2>
-      <p class="text-xs text-slate-500 mt-0.5">Otomatisasi pembuatan invoice tagihan berbasis kalender Hijriah.</p>
+      <h2 class="font-extrabold text-slate-900 text-lg">Pengaturan Sistem & Gateway</h2>
+      <p class="text-xs text-slate-500 mt-0.5">Atur jadwal billing otomatis dan status lingkungan pembayaran Midtrans.</p>
     </div>
   </div>
 
   <div class="space-y-4">
+    <!-- Auto Billing Bulanan -->
     <div class="rounded-2xl p-4 border transition-all duration-300 shadow-sm hover:shadow-md {autoBillingEnabled ? 'bg-emerald-50/30 border-emerald-200/80' : 'bg-slate-50/50 border-slate-200'}">
       <div class="flex items-center justify-between gap-4 mb-4">
         <div class="flex-1 min-w-0">
@@ -66,14 +71,11 @@
               {/each}
             </select>
           </div>
-          <!-- <div class="flex-1 text-[11px] {autoBillingEnabled ? 'text-emerald-800/90' : 'text-slate-500'} leading-relaxed md:border-l {autoBillingEnabled ? 'border-emerald-100' : 'border-slate-200'} md:pl-4">
-            <span class="font-bold {autoBillingEnabled ? 'text-emerald-900' : 'text-slate-800'} block mb-0.5">Sistem Notifikasi H-5:</span>
-            Wali santri otomatis menerima notifikasi pengingat tepat 5 hari sebelum tanggal tagihan di atas. Bulan & tahun dinamis mengikuti bulan berjalan.
-          </div> -->
         </div>
       </div>
     </div>
 
+    <!-- Auto Billing Semester -->
     <div class="rounded-2xl p-4 border transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-between gap-4 {autoSemesterBillingEnabled ? 'bg-blue-50/30 border-blue-200/80' : 'bg-slate-50/50 border-slate-200'}">
       <div class="flex-1 min-w-0">
         <p class="text-sm font-bold {autoSemesterBillingEnabled ? 'text-blue-900' : 'text-slate-900'}">Auto Billing Semester</p>
@@ -90,6 +92,35 @@
       >
         <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200
                {autoSemesterBillingEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
+      </button>
+    </div>
+
+    <!-- Midtrans Environment Toggle -->
+    <div class="rounded-2xl p-4 border transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-between gap-4 {midtransEnvironment === 'production' ? 'bg-amber-50/30 border-amber-200/80' : 'bg-slate-50/50 border-slate-200'}">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <p class="text-sm font-bold {midtransEnvironment === 'production' ? 'text-amber-900' : 'text-slate-900'}">Mode Midtrans Gateway</p>
+          <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase border {midtransEnvironment === 'production' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}">
+            {midtransEnvironment === 'production' ? 'Live' : 'Sandbox'}
+          </span>
+        </div>
+        <p class="text-xs {midtransEnvironment === 'production' ? 'text-amber-700/80' : 'text-slate-500'} mt-0.5 font-medium">
+          {midtransEnvironment === 'production' 
+            ? 'Menggunakan transaksi uang asli. Pastikan Server & Client Key Production sudah disetel.' 
+            : 'Menggunakan transaksi simulasi uang mainan untuk kebutuhan uji coba.'}
+        </p>
+      </div>
+      <button 
+        type="button"
+        onclick={onMidtransToggle}
+        disabled={settingLoading}
+        aria-label="Toggle Midtrans Environment"
+        title="Toggle Midtrans Environment"
+        class="relative inline-flex h-6.5 w-12 flex-shrink-0 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-amber-600/20 focus:ring-offset-2
+               {midtransEnvironment === 'production' ? 'bg-amber-600 shadow-inner' : 'bg-slate-300'}"
+      >
+        <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200
+               {midtransEnvironment === 'production' ? 'translate-x-6' : 'translate-x-1'}"></span>
       </button>
     </div>
   </div>

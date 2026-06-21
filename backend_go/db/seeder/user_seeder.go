@@ -2,6 +2,7 @@ package seeder
 
 import (
 	"log"
+	"os"
 
 	"github.com/EkiiiF/al_anwar_payment_2.git/internal/model/domain"
 	"github.com/google/uuid"
@@ -24,7 +25,11 @@ func SeedUsers(db *gorm.DB) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	defaultPass := os.Getenv("SEEDER_DEFAULT_PASSWORD")
+	if defaultPass == "" {
+		defaultPass = "password123"
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(defaultPass), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Error hashing password: %v", err)
 		return
@@ -38,10 +43,10 @@ func SeedUsers(db *gorm.DB) {
 			RoleID:      superuserRole.ID,
 			IsActive:    true,
 			FirstName:   "Super",
-			LastName:    "Admin",
-			Email:       "super@alanwar.com",
+			LastName:    "User",
+			Email:       "super_user@alanwar.com",
 			PhoneNumber: "081234567890",
-			Gender:      "L",
+			Gender:      "",
 		},
 		// {
 		// 	ID:          uuid.New().String(),
@@ -62,10 +67,10 @@ func SeedUsers(db *gorm.DB) {
 			RoleID:      pengasuhRole.ID,
 			IsActive:    true,
 			FirstName:   "Pengasuh",
-			LastName:    "Pesantren",
+			LastName:    "",
 			Email:       "pengasuh@alanwar.com",
-			PhoneNumber: "081234567892",
-			Gender:      "L",
+			PhoneNumber: "081234567890",
+			Gender:      "",
 		},
 	}
 

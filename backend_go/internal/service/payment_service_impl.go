@@ -24,6 +24,7 @@ type PaymentServiceImpl struct {
 	GuardianRepo repository.GuardianRepository
 	SnapClient   snap.Client
 	CoreClient   coreapi.Client
+	Config       *config.Config
 }
 
 func NewPaymentService(db *gorm.DB, paymentRepo repository.PaymentRepository, guardianRepo repository.GuardianRepository, cfg *config.Config) PaymentService {
@@ -31,6 +32,7 @@ func NewPaymentService(db *gorm.DB, paymentRepo repository.PaymentRepository, gu
 		DB:           db,
 		PaymentRepo:  paymentRepo,
 		GuardianRepo: guardianRepo,
+		Config:       cfg,
 	}
 
 	var env midtrans.EnvironmentType
@@ -45,7 +47,23 @@ func NewPaymentService(db *gorm.DB, paymentRepo repository.PaymentRepository, gu
 	return svc
 }
 
+func (s *PaymentServiceImpl) getDynamicEnv() midtrans.EnvironmentType {
+	var setting domain.Setting
+	if err := s.DB.Where("`key` = ?", "midtrans_environment").First(&setting).Error; err == nil {
+		if setting.Value == "production" {
+			return midtrans.Production
+		}
+		return midtrans.Sandbox
+	}
+	if s.Config.MidtransIsProd {
+		return midtrans.Production
+	}
+	return midtrans.Sandbox
+}
+
 func (s *PaymentServiceImpl) CheckStatus(ctx context.Context, orderID string) error {
+	env := s.getDynamicEnv()
+	s.CoreClient.New(s.Config.MidtransServerKey, env)
 	resp, err := s.CoreClient.CheckTransaction(orderID)
 	if err != nil {
 		log.Printf("[Midtrans] CheckTransaction error for OrderID %s: %v", orderID, err)
@@ -161,6 +179,16 @@ func (s *PaymentServiceImpl) CreateTransaction(ctx context.Context, invoiceIDs [
 		Items: &itemDetails,
 	}
 
+	env := s.getDynamicEnv()
+	key := s.Config.MidtransServerKey
+	maskedKey := ""
+	if len(key) > 15 {
+		maskedKey = key[:11] + "..." + key[len(key)-4:]
+	} else {
+		maskedKey = "invalid-key-length"
+	}
+	log.Printf("[Midtrans] Creating transaction with env: %v (1=Sandbox, 2=Production), ServerKey: %s (len: %d)", env, maskedKey, len(key))
+	s.SnapClient.New(key, env)
 	snapResp, snapErr := s.SnapClient.CreateTransaction(snapReq)
 	if snapErr != nil {
 		return response.TransactionResponse{}, fmt.Errorf("gagal membuat transaksi ke Midtrans: %w", snapErr)
